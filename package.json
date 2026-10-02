@@ -1,0 +1,10 @@
+{
+  "name": "sri-kaliamman-parking",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --check app/app.js && node --check app/js/store.js && node --check site.js && node --check sw.js",
+    "test": "node --test tests/domain.test.js"
+  }
+}

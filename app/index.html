@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#111827" />
+    <meta name="color-scheme" content="dark light" />
+    <title>Sri Kaliamman Parking</title>
+    <link rel="manifest" href="../manifest.webmanifest" />
+    <link rel="icon" type="image/png" href="../assets/icon-192.png" />
+    <link rel="apple-touch-icon" href="../assets/icon-192.png" />
+    <link rel="stylesheet" href="./app.css" />
+  </head>
+  <body>
+    <div class="app-loader" id="app-loader" aria-live="polite">
+      <div class="loader-logo-wrap"><img src="../assets/sri-kaliamman-logo.jpg" alt="Sri Kaliamman Two Wheeler Parking" /></div>
+      <span class="loader-orbit" aria-hidden="true"></span>
+      <p>Preparing parking control</p>
+    </div>
+
+    <div class="app-shell" id="app-shell" hidden>
+      <aside class="side-rail" aria-label="Primary navigation">
+        <a href="#dashboard" class="brand" aria-label="Sri Kaliamman Parking dashboard" data-nav="dashboard">
+          <span class="brand-mark"><img src="../assets/sri-kaliamman-logo.jpg" alt="" /></span>
+          <span class="brand-copy"><strong class="data-stand-name">Sri Kaliamman Parking</strong><small>Parking control</small></span>
+        </a>
+
+        <nav class="rail-nav">
+          <a href="#dashboard" class="nav-link is-active" data-nav="dashboard"><span class="nav-icon">⌂</span><span>Dashboard</span></a>
+          <a href="#entry" class="nav-link" data-nav="entry"><span class="nav-icon">＋</span><span>New entry</span></a>
+          <a href="#active" class="nav-link" data-nav="active"><span class="nav-icon">▤</span><span>Active parking</span><b class="nav-count" id="active-nav-count">0</b></a>
+          <a href="#memberships" class="nav-link" data-nav="memberships"><span class="nav-icon">◇</span><span>Passes</span></a>
+          <a href="#reports" class="nav-link" data-nav="reports"><span class="nav-icon">▥</span><span>Reports</span></a>
+          <a href="#settings" class="nav-link" data-nav="settings"><span class="nav-icon">⚙</span><span>Settings</span></a>
+        </nav>
+
+        <div class="rail-foot">
+          <button class="sync-panel" type="button" id="sync-button" aria-label="Sync local parking data">
+            <span class="sync-dot" id="sync-dot"></span>
+            <span><strong id="sync-label">Local data</strong><small id="sync-detail">Ready offline</small></span>
+            <span class="sync-arrow">↻</span>
+          </button>
+        </div>
+      </aside>
+
+      <div class="mobile-topbar">
+        <a href="#dashboard" class="mobile-brand" aria-label="Sri Kaliamman Parking dashboard" data-nav="dashboard">
+          <img src="../assets/sri-kaliamman-logo.jpg" alt="" />
+          <span><strong class="data-stand-name">Sri Kaliamman Parking</strong><small>Parking control</small></span>
+        </a>
+        <button class="top-sync" type="button" id="mobile-sync-button" aria-label="Sync local parking data"><span id="mobile-sync-icon">↻</span></button>
+      </div>
+
+      <main class="main-content">
+        <section class="view is-active" id="view-dashboard" data-view="dashboard" aria-labelledby="dashboard-title">
+          <div class="page-heading dashboard-heading">
+            <div>
+              <p class="eyebrow"><span class="live-pulse"></span> Live parking board</p>
+              <h1 id="dashboard-title">Parking control</h1>
+              <p class="page-lead">Monitor vehicles, payments, and open spaces in one place.</p>
+            </div>
+            <div class="heading-actions">
+              <button class="button button-quiet icon-button" type="button" data-action="refresh-dashboard" aria-label="Refresh dashboard">↻</button>
+              <button class="button button-primary" type="button" data-go="entry"><span>＋</span> Park a vehicle</button>
+            </div>
+          </div>
+
+          <div class="occupancy-banner" id="occupancy-banner">
+            <div class="occupancy-copy">
+              <p class="eyebrow">Available space</p>
+              <h2><span id="available-total">—</span> open bays</h2>
+              <p id="occupancy-summary">Loading live parking availability…</p>
+            </div>
+            <div class="occupancy-ring" aria-label="Overall occupancy"><svg viewBox="0 0 120 120" role="img"><circle class="ring-track" cx="60" cy="60" r="48"></circle><circle class="ring-value" id="occupancy-ring-value" cx="60" cy="60" r="48"></circle></svg><span><b id="occupancy-percent">—</b><small>occupied</small></span></div>
+            <div class="occupancy-accent" aria-hidden="true">🛵</div>
+          </div>
+
+          <div class="metric-grid" aria-label="Dashboard totals">
+            <article class="metric-card metric-active"><span class="metric-icon">🛵</span><div><p>Parked now</p><strong id="metric-active">—</strong><small id="metric-active-note">vehicles on site</small></div></article>
+            <article class="metric-card metric-income"><span class="metric-icon">₹</span><div><p>Today collected</p><strong id="metric-revenue">—</strong><small id="metric-revenue-note">completed parking</small></div></article>
+            <article class="metric-card metric-pass"><span class="metric-icon">◇</span><div><p>Active passes</p><strong id="metric-memberships">—</strong><small id="metric-memberships-note">membership vehicles</small></div></article>
+            <article class="metric-card metric-space"><span class="metric-icon">⌁</span><div><p>Spaces left</p><strong id="metric-spaces">—</strong><small id="metric-spaces-note">across all bays</small></div></article>
+          </div>
+
+          <div class="dashboard-grid">
+            <article class="surface stand-card">
+              <div class="section-heading">
+                <div><p class="eyebrow">Bay status</p><h2>Vehicle stands</h2></div>
+                <button class="text-button" type="button" data-go="active">View active <span>→</span></button>
+              </div>
+              <div class="stand-list">
+                <button class="stand-row" type="button" data-action="filter-vehicle" data-type="two-wheeler">
+                  <span class="stand-emoji">🛵</span><span class="stand-info"><strong>Two wheelers</strong><small id="two-status-copy">Loading…</small></span><span class="stand-meter"><i><b id="two-status-bar"></b></i><em id="two-status-number">—</em></span>
+                </button>
+                <button class="stand-row" type="button" data-action="filter-vehicle" data-type="four-wheeler">
+                  <span class="stand-emoji">🚗</span><span class="stand-info"><strong>Four wheelers</strong><small id="four-status-copy">Loading…</small></span><span class="stand-meter"><i><b id="four-status-bar"></b></i><em id="four-status-number">—</em></span>
+                </button>
+              </div>
+            </article>
+
+            <article class="surface action-card">
+              <div class="section-heading"><div><p class="eyebrow">Quick action</p><h2>Start parking</h2></div><span class="shine-dot"></span></div>
+              <p>Choose a vehicle type to open a new parking ticket.</p>
+              <div class="vehicle-action-grid">
+                <button class="vehicle-action" type="button" data-go="entry" data-entry-type="two-wheeler"><span>🛵</span><strong>Two wheeler</strong><small>Bike, scooter</small></button>
+                <button class="vehicle-action" type="button" data-go="entry" data-entry-type="four-wheeler"><span>🚗</span><strong>Four wheeler</strong><small>Car, SUV</small></button>
+              </div>
+            </article>
+          </div>
+
+          <article class="surface recent-card">
+            <div class="section-heading"><div><p class="eyebrow">Live queue</p><h2>Recently parked</h2></div><button class="text-button" type="button" data-go="active">All active vehicles <span>→</span></button></div>
+            <div class="list-table" id="dashboard-active-list"><div class="empty-inline">Loading active parking…</div></div>
+          </article>
+        </section>
+
+        <section class="view" id="view-entry" data-view="entry" aria-labelledby="entry-title">
+          <div class="page-heading">
+            <div><p class="eyebrow">New parking ticket</p><h1 id="entry-title">Park a vehicle</h1><p class="page-lead">Add a vehicle in seconds. The entry time is recorded automatically.</p></div>
+            <button class="button button-quiet" type="button" data-go="active">View active parking</button>
+          </div>
+          <div class="entry-layout">
+            <form class="surface entry-form" id="entry-form" novalidate>
+              <div class="form-section-label"><span>1</span><div><h2>Vehicle type</h2><p>Select the parking bay needed.</p></div></div>
+              <div class="vehicle-choice-group" role="radiogroup" aria-label="Vehicle type">
+                <label class="vehicle-choice is-selected"><input type="radio" name="vehicleType" value="two-wheeler" checked /><span class="vehicle-choice-emoji">🛵</span><span><strong>Two wheeler</strong><small>Bike or scooter</small></span><i>✓</i></label>
+                <label class="vehicle-choice"><input type="radio" name="vehicleType" value="four-wheeler" /><span class="vehicle-choice-emoji">🚗</span><span><strong>Four wheeler</strong><small>Car or SUV</small></span><i>✓</i></label>
+              </div>
+              <div class="form-section-label"><span>2</span><div><h2>Vehicle number</h2><p>Use the registration as the ticket reference.</p></div></div>
+              <label class="field-label" for="entry-vehicle-number">Registration number</label>
+              <div class="vehicle-input-wrap"><span class="plate-prefix">IND</span><input id="entry-vehicle-number" name="vehicleNumber" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="16" placeholder="TN 00 AB 0000" aria-describedby="entry-number-help" required /><span class="plate-badge" id="plate-type-badge">🛵</span></div>
+              <p class="field-help" id="entry-number-help">Spaces and hyphens are accepted. The number will be saved in uppercase.</p>
+              <div class="entry-form-footer"><span class="local-note"><i></i> Saved on this device</span><button class="button button-primary button-large" type="submit"><span>🅿</span> Create parking ticket</button></div>
+            </form>
+            <aside class="entry-aside">
+              <article class="surface ticket-preview">
+                <div class="ticket-head"><div><p class="eyebrow">Ticket preview</p><h2>Ready to park</h2></div><span class="preview-vehicle" id="preview-vehicle">🛵</span></div>
+                <div class="ticket-number" id="preview-number">TN 00 AB 0000</div>
+                <div class="ticket-rule"></div>
+                <dl><div><dt>Vehicle</dt><dd id="preview-type">Two wheeler</dd></div><div><dt>Entry</dt><dd>Current time</dd></div><div><dt>Payment</dt><dd>At checkout</dd></div></dl>
+              </article>
+              <article class="entry-tip"><span>✦</span><p>Monthly-pass vehicles are recognised automatically when their parking ticket is created.</p></article>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" id="view-active" data-view="active" aria-labelledby="active-title">
+          <div class="page-heading compact-heading"><div><p class="eyebrow">Live parking</p><h1 id="active-title">Active vehicles <span class="heading-count" id="active-heading-count">0</span></h1><p class="page-lead">Search a ticket or begin checkout directly from the list.</p></div><button class="button button-primary" type="button" data-go="entry"><span>＋</span> New entry</button></div>
+          <article class="surface active-surface">
+            <div class="toolbar">
+              <label class="search-field"><span>⌕</span><input type="search" id="active-search" placeholder="Search vehicle number or ticket" autocomplete="off" /><button type="button" class="clear-search" id="clear-active-search" aria-label="Clear search" hidden>×</button></label>
+              <div class="segmented-control" role="group" aria-label="Vehicle category"><button type="button" class="is-selected" data-active-filter="all">All</button><button type="button" data-active-filter="two-wheeler">🛵 Two</button><button type="button" data-active-filter="four-wheeler">🚗 Four</button></div>
+            </div>
+            <div class="active-list" id="active-list" aria-live="polite"><div class="empty-state"><span>⌁</span><h2>Loading active parking</h2><p>Vehicle tickets will appear here.</p></div></div>
+          </article>
+        </section>
+
+        <section class="view" id="view-memberships" data-view="memberships" aria-labelledby="memberships-title">
+          <div class="page-heading compact-heading"><div><p class="eyebrow">Parking passes</p><h1 id="memberships-title">Memberships</h1><p class="page-lead">Manage monthly passes for frequent parking.</p></div><button class="button button-primary" type="button" id="show-membership-form"><span>＋</span> Add pass</button></div>
+          <div class="membership-summary" id="membership-summary"><article class="pass-summary-card is-gold"><span>◇</span><div><p>Active passes</p><strong id="membership-active-count">—</strong></div></article><article class="pass-summary-card"><span>◷</span><div><p>Expiring soon</p><strong id="membership-expiring-count">—</strong></div></article><article class="pass-summary-card"><span>🛵</span><div><p>Two wheelers</p><strong id="membership-two-count">—</strong></div></article></div>
+          <div class="memberships-layout">
+            <article class="surface memberships-list-card"><div class="section-heading"><div><p class="eyebrow">Pass directory</p><h2>Current passes</h2></div><div class="small-filter"><select id="membership-filter" aria-label="Filter memberships"><option value="all">All passes</option><option value="active">Active</option><option value="inactive">Inactive</option></select></div></div><div class="memberships-list" id="memberships-list"><div class="empty-inline">Loading passes…</div></div></article>
+            <form class="surface membership-form" id="membership-form" novalidate hidden>
+              <div class="form-card-heading"><div><p class="eyebrow" id="membership-form-kicker">New monthly pass</p><h2 id="membership-form-title">Add membership</h2></div><button type="button" class="close-form" id="hide-membership-form" aria-label="Close membership form">×</button></div>
+              <input type="hidden" id="membership-id" name="membershipId" />
+              <label class="field-label" for="membership-number">Vehicle number</label><input class="form-input uppercase-input" id="membership-number" name="vehicleNumber" type="text" maxlength="16" placeholder="TN 00 AB 0000" autocomplete="off" required />
+              <label class="field-label" for="membership-type">Vehicle type</label><select class="form-input" id="membership-type" name="vehicleType"><option value="two-wheeler">🛵 Two wheeler</option><option value="four-wheeler">🚗 Four wheeler</option></select>
+              <div class="form-two-col"><div><label class="field-label" for="membership-start">Starts</label><input class="form-input" id="membership-start" name="startDate" type="date" required /></div><div><label class="field-label" for="membership-end">Ends</label><input class="form-input" id="membership-end" name="endDate" type="date" required /></div></div>
+              <label class="field-label" for="membership-amount">Pass amount</label><div class="money-input"><span>₹</span><input id="membership-amount" class="form-input" name="amount" type="number" min="0" step="1" placeholder="0" /></div>
+              <label class="switch-row"><input type="checkbox" id="membership-active" name="active" checked /><span class="switch-control"></span><span><strong>Pass active</strong><small>Valid for automatic recognition</small></span></label>
+              <button class="button button-primary button-block" type="submit" id="membership-save">Save pass</button>
+            </form>
+            <aside class="membership-empty-form" id="membership-empty-form"><span>◇</span><h2>Monthly parking, simplified</h2><p>Add a pass to recognise the vehicle at entry and streamline checkout.</p><button type="button" class="text-button" id="show-membership-form-alt">Create a pass <span>→</span></button></aside>
+          </div>
+        </section>
+
+        <section class="view" id="view-reports" data-view="reports" aria-labelledby="reports-title">
+          <div class="page-heading compact-heading"><div><p class="eyebrow">Business overview</p><h1 id="reports-title">Reports</h1><p class="page-lead">Review completed parking and payment totals.</p></div><button class="button button-quiet" type="button" id="export-report"><span>⇩</span> Export CSV</button></div>
+          <article class="surface report-filter"><div class="report-filter-copy"><strong>Report period</strong><small>Filter completed parking transactions.</small></div><div class="report-controls"><label><span>From</span><input type="date" id="report-from" /></label><label><span>To</span><input type="date" id="report-to" /></label><button class="button button-dark" type="button" id="apply-report-filter">Apply</button></div></article>
+          <div class="report-metrics"><article class="report-stat"><p>Collected</p><strong id="report-revenue">—</strong><span>payments received</span></article><article class="report-stat"><p>Completed</p><strong id="report-transactions">—</strong><span>parking tickets</span></article><article class="report-stat"><p>Average ticket</p><strong id="report-average">—</strong><span>per checkout</span></article><article class="report-stat"><p>Outstanding</p><strong id="report-due">—</strong><span>unpaid balance</span></article></div>
+          <article class="surface report-table-card"><div class="section-heading"><div><p class="eyebrow">Payment history</p><h2>Completed parking</h2></div><span class="table-total" id="report-table-total">0 records</span></div><div class="transaction-table-wrap"><div class="transaction-table" id="report-list"><div class="empty-inline">Loading report data…</div></div></div></article>
+        </section>
+
+        <section class="view" id="view-settings" data-view="settings" aria-labelledby="settings-title">
+          <div class="page-heading"><div><p class="eyebrow">App settings</p><h1 id="settings-title">Parking setup</h1><p class="page-lead">Set capacity and parking charges stored on this device.</p></div></div>
+          <div class="settings-layout">
+            <form class="surface settings-form" id="settings-form" novalidate>
+              <div class="settings-group"><div class="settings-group-heading"><span>🛵</span><div><h2>Two wheeler parking</h2><p>Capacity and rate for bikes and scooters.</p></div></div><div class="setting-fields"><label><span>Parking bays</span><input type="number" name="twoWheelerCapacity" min="0" step="1" required /></label><label><span>Rate per 24 hours</span><div class="money-input"><b>₹</b><input type="number" name="twoWheelerRate" min="0" step="1" required /></div></label></div></div>
+              <div class="settings-group"><div class="settings-group-heading"><span>🚗</span><div><h2>Four wheeler parking</h2><p>Capacity and rate for cars and SUVs.</p></div></div><div class="setting-fields"><label><span>Parking bays</span><input type="number" name="fourWheelerCapacity" min="0" step="1" required /></label><label><span>Rate per 24 hours</span><div class="money-input"><b>₹</b><input type="number" name="fourWheelerRate" min="0" step="1" required /></div></label></div></div>
+              <div class="settings-group settings-group-last"><div class="settings-group-heading"><span>◇</span><div><h2>Membership</h2><p>Default monthly-pass amount.</p></div></div><div class="setting-fields single-setting"><label><span>Monthly pass amount</span><div class="money-input"><b>₹</b><input type="number" name="monthlyMembershipAmount" min="0" step="1" required /></div></label></div></div>
+              <div class="settings-save-row"><span class="local-note"><i></i> Settings save locally</span><button class="button button-primary" type="submit">Save parking setup</button></div>
+            </form>
+            <aside class="settings-side">
+              <article class="surface data-status-card"><div class="status-card-icon">⌁</div><p class="eyebrow">Data status</p><h2 id="settings-sync-title">Local parking data</h2><p id="settings-sync-copy">This device keeps working when offline.</p><button class="button button-quiet button-block" type="button" id="settings-sync-button">Sync now</button></article>
+              <form class="surface sync-activation-form" id="sync-config-form" novalidate>
+                <p class="eyebrow">Optional central sync</p>
+                <h2>Activate this device</h2>
+                <p>Use a device token issued by your own secure parking backend. This is not a customer or staff login.</p>
+                <label class="field-label" for="sync-endpoint">Sync endpoint</label><input class="form-input" id="sync-endpoint" name="endpoint" type="url" placeholder="https://project.supabase.co/functions/v1" inputmode="url" />
+                <label class="field-label" for="sync-site-id">Parking stand ID</label><input class="form-input" id="sync-site-id" name="siteId" type="text" placeholder="UUID from your setup" autocomplete="off" />
+                <label class="field-label" for="sync-device-token">Device token</label><input class="form-input" id="sync-device-token" name="deviceToken" type="password" placeholder="Paste the token for this device" autocomplete="off" />
+                <button class="button button-quiet button-block" type="submit">Save device connection</button>
+              </form>
+              <article class="settings-help"><span>✦</span><p>Changes apply to every new parking ticket. Existing tickets keep their calculated charge.</p></article>
+            </aside>
+          </div>
+        </section>
+      </main>
+
+      <nav class="bottom-nav" aria-label="Mobile navigation">
+        <a href="#dashboard" data-nav="dashboard" class="is-active"><span>⌂</span><small>Home</small></a>
+        <a href="#active" data-nav="active"><span>▤</span><small>Active</small><b id="mobile-active-count">0</b></a>
+        <a href="#entry" data-nav="entry" class="nav-entry"><span>＋</span><small>Park</small></a>
+        <a href="#memberships" data-nav="memberships"><span>◇</span><small>Passes</small></a>
+        <a href="#reports" data-nav="reports"><span>▥</span><small>Reports</small></a>
+      </nav>
+    </div>
+
+    <dialog class="checkout-dialog" id="checkout-dialog" aria-labelledby="checkout-title">
+      <form method="dialog" class="dialog-sheet" id="checkout-form" novalidate>
+        <button class="dialog-close" type="button" data-action="close-checkout" aria-label="Close checkout">×</button>
+        <div class="dialog-top"><span class="dialog-vehicle" id="checkout-vehicle-icon">🛵</span><div><p class="eyebrow">Complete parking</p><h2 id="checkout-title">Checkout vehicle</h2></div></div>
+        <div class="checkout-ticket" id="checkout-ticket"><div class="checkout-ticket-top"><span id="checkout-serial">Ticket —</span><strong id="checkout-number">—</strong></div><div class="checkout-ticket-meta"><span><small>Parked for</small><b id="checkout-duration">—</b></span><span><small>Entry</small><b id="checkout-entry-time">—</b></span></div></div>
+        <div class="checkout-amounts"><div><span>Parking charge</span><strong id="checkout-charge">₹0</strong></div><div class="pass-adjustment" id="checkout-pass-row" hidden><span>Membership benefit</span><strong id="checkout-pass-adjustment">₹0</strong></div><div class="checkout-total"><span>Amount due</span><strong id="checkout-due">₹0</strong></div></div>
+        <label class="field-label" for="checkout-paid">Amount received</label><div class="checkout-paid-input"><span>₹</span><input id="checkout-paid" name="amountPaid" type="number" min="0" step="1" inputmode="decimal" required /><button class="fill-amount" type="button" id="fill-due-amount">Use due amount</button></div>
+        <div class="change-row" id="checkout-change-row" hidden><span>Return change</span><strong id="checkout-change">₹0</strong></div>
+        <p class="checkout-note"><i></i> Confirming closes this parking ticket and saves the payment.</p>
+        <button type="submit" class="button button-primary button-block button-large" id="confirm-checkout"><span>✓</span> Confirm checkout</button>
+      </form>
+    </dialog>
+
+    <dialog class="success-dialog" id="success-dialog" aria-labelledby="success-title">
+      <div class="success-sheet"><div class="success-burst">✓</div><p class="eyebrow">Parking ticket created</p><h2 id="success-title">Vehicle is parked</h2><p class="success-number" id="success-number">—</p><p class="success-copy" id="success-copy">The parking entry has been saved on this device.</p><div class="success-actions"><button class="button button-quiet" type="button" data-action="close-success">Close</button><button class="button button-primary" type="button" data-go="active" data-action="close-success">View active parking</button></div></div>
+    </dialog>
+
+    <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
+    <script src="./sync-config.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
