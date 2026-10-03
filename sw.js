@@ -1,17 +1,17 @@
-const CACHE_NAME = 'sri-kaliamman-v3';
+const CACHE_NAME = 'sri-kaliamman-v4';
 const APP_SHELL = [
   './',
   './index.html',
-  './site.css',
-  './site.js',
-  './manifest.webmanifest',
+  './site.css?v=4',
+  './site.js?v=4',
+  './manifest.webmanifest?v=4',
   './assets/sri-kaliamman-logo.jpg',
   './assets/icon-192.png',
   './assets/icon-512.png',
   './app/',
   './app/index.html',
-  './app/app.css',
-  './app/app.js',
+  './app/app.css?v=4',
+  './app/app.js?v=4',
   './app/sync-config.js',
   './app/js/store.js'
 ];
