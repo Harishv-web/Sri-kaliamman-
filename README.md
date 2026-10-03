@@ -38,7 +38,7 @@ GitHub Pages can serve this repository directly from the `main` branch root. Aft
 
 `https://harishv-web.github.io/Sri-kaliamman-/`
 
-The public **Download Android APK** button downloads `Sri-Kaliamman-Parking.apk` directly from the repository release; it does not open an app preview or require Add to Home Screen. The APK bundles the parking app and starts directly at the parking dashboard.
+The public **Download Android APK** button downloads `Sri-Kaliamman-Parking.apk` directly from the repository release; it does not open an app preview. The APK bundles the parking app and starts directly at the parking dashboard.
 
 Android may ask once for permission to install an app downloaded from the browser. This is the normal device security confirmation for direct APK installs. A later Google Play Store listing still requires the owner's verified Play Console account and its release-signing setup.
 
