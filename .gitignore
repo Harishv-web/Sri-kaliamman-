@@ -4,3 +4,4 @@
 .supabase/
 node_modules/
 dist/
+.npm-cache/

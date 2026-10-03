@@ -8,8 +8,8 @@ A mobile-first, offline-ready Progressive Web App for a two-wheeler and four-whe
 - Collision-safe `123AB` parking serials, reserved permanently on the device
 - 24-hour billing (₹15 two-wheeler / ₹70 four-wheeler by default), with configurable rates and capacities
 - Checkout bill, received amount, change, due amount, and preserved history
-- Dashboard, current vehicles, membership passes, reporting, CSV export, and status/capacity views
-- IndexedDB persistence, offline use, web manifest, service worker, and Android Add to Home Screen support
+- Dashboard, current vehicles, membership passes, reporting, CSV export, and daily vehicle activity views
+- IndexedDB persistence, offline use, web manifest, service worker, and Android home-screen installation support
 
 The application has no customer accounts, staff accounts, passwords, or customer PII. Vehicle registration number is the only customer-related field.
 
@@ -38,7 +38,9 @@ GitHub Pages can serve this repository directly from the `main` branch root. Aft
 
 `https://harishv-web.github.io/Sri-kaliamman-/`
 
-The page registers `sw.js` and exposes a direct **Download & install** action. On Android Chrome, choose the install prompt / Add to Home Screen. The installed application starts at the parking dashboard.
+The page opens an in-app **Install app** screen. On Android Chrome, tap **Install on this device** when the browser is ready, or use Chrome's ⋮ menu and choose **Install app** / **Add to Home screen**. The installed application starts at the parking dashboard and behaves like a launcher app.
+
+This is a Progressive Web App, so there is no misleading APK download link. Publishing a separate Google Play Store listing requires the owner's verified Play Console account and a signed Android release package.
 
 ## Central shared sync
 

@@ -35,6 +35,11 @@
         </nav>
 
         <div class="rail-foot">
+          <button class="install-panel" type="button" data-action="show-install">
+            <span>📲</span>
+            <span><strong>Install app</strong><small>Use it from your home screen</small></span>
+            <span aria-hidden="true">→</span>
+          </button>
           <button class="sync-panel" type="button" id="sync-button" aria-label="Sync local parking data">
             <span class="sync-dot" id="sync-dot"></span>
             <span><strong id="sync-label">Local data</strong><small id="sync-detail">Ready offline</small></span>
@@ -48,7 +53,10 @@
           <img src="../assets/sri-kaliamman-logo.jpg" alt="" />
           <span><strong class="data-stand-name">Sri Kaliamman Parking</strong><small>Parking control</small></span>
         </a>
-        <button class="top-sync" type="button" id="mobile-sync-button" aria-label="Sync local parking data"><span id="mobile-sync-icon">↻</span></button>
+        <div class="mobile-actions">
+          <button class="top-install" type="button" data-action="show-install" aria-label="Install Sri Kaliamman Parking app">📲</button>
+          <button class="top-sync" type="button" id="mobile-sync-button" aria-label="Sync local parking data"><span id="mobile-sync-icon">↻</span></button>
+        </div>
       </div>
 
       <main class="main-content">
@@ -57,43 +65,44 @@
             <div>
               <p class="eyebrow"><span class="live-pulse"></span> Live parking board</p>
               <h1 id="dashboard-title">Parking control</h1>
-              <p class="page-lead">Monitor vehicles, payments, and open spaces in one place.</p>
+              <p class="page-lead">Monitor vehicle activity, payments, and daily exits in one place.</p>
             </div>
             <div class="heading-actions">
+              <button class="button button-quiet" type="button" data-action="show-install"><span>📲</span> Install app</button>
               <button class="button button-quiet icon-button" type="button" data-action="refresh-dashboard" aria-label="Refresh dashboard">↻</button>
               <button class="button button-primary" type="button" data-go="entry"><span>＋</span> Park a vehicle</button>
             </div>
           </div>
 
-          <div class="occupancy-banner" id="occupancy-banner">
+          <div class="occupancy-banner" id="activity-banner">
             <div class="occupancy-copy">
-              <p class="eyebrow">Available space</p>
-              <h2><span id="available-total">—</span> open bays</h2>
-              <p id="occupancy-summary">Loading live parking availability…</p>
+              <p class="eyebrow">Today’s activity</p>
+              <h2><span id="today-entry-total">—</span> vehicles entered</h2>
+              <p id="today-activity-summary">Loading today’s parking activity…</p>
             </div>
-            <div class="occupancy-ring" aria-label="Overall occupancy"><svg viewBox="0 0 120 120" role="img"><circle class="ring-track" cx="60" cy="60" r="48"></circle><circle class="ring-value" id="occupancy-ring-value" cx="60" cy="60" r="48"></circle></svg><span><b id="occupancy-percent">—</b><small>occupied</small></span></div>
-            <div class="occupancy-accent" aria-hidden="true">🛵</div>
+            <div class="occupancy-ring" aria-label="Today's vehicle entries"><svg viewBox="0 0 120 120" role="img"><circle class="ring-track" cx="60" cy="60" r="48"></circle><circle class="ring-value" id="activity-ring-value" cx="60" cy="60" r="48"></circle></svg><span><b id="today-entry-count">—</b><small>entries today</small></span></div>
+            <div class="occupancy-accent" aria-hidden="true">🅿️</div>
           </div>
 
           <div class="metric-grid" aria-label="Dashboard totals">
             <article class="metric-card metric-active"><span class="metric-icon">🛵</span><div><p>Parked now</p><strong id="metric-active">—</strong><small id="metric-active-note">vehicles on site</small></div></article>
             <article class="metric-card metric-income"><span class="metric-icon">₹</span><div><p>Today collected</p><strong id="metric-revenue">—</strong><small id="metric-revenue-note">completed parking</small></div></article>
             <article class="metric-card metric-pass"><span class="metric-icon">◇</span><div><p>Active passes</p><strong id="metric-memberships">—</strong><small id="metric-memberships-note">membership vehicles</small></div></article>
-            <article class="metric-card metric-space"><span class="metric-icon">⌁</span><div><p>Spaces left</p><strong id="metric-spaces">—</strong><small id="metric-spaces-note">across all bays</small></div></article>
+            <article class="metric-card metric-exit"><span class="metric-icon">↗</span><div><p>Today’s exits</p><strong id="metric-exits">—</strong><small id="metric-exits-note">completed parking</small></div></article>
           </div>
 
           <div class="dashboard-grid">
             <article class="surface stand-card">
               <div class="section-heading">
-                <div><p class="eyebrow">Bay status</p><h2>Vehicle stands</h2></div>
+                <div><p class="eyebrow">Today’s vehicle activity</p><h2>Two &amp; four wheelers</h2></div>
                 <button class="text-button" type="button" data-go="active">View active <span>→</span></button>
               </div>
               <div class="stand-list">
                 <button class="stand-row" type="button" data-action="filter-vehicle" data-type="two-wheeler">
-                  <span class="stand-emoji">🛵</span><span class="stand-info"><strong>Two wheelers</strong><small id="two-status-copy">Loading…</small></span><span class="stand-meter"><i><b id="two-status-bar"></b></i><em id="two-status-number">—</em></span>
+                  <span class="stand-emoji">🛵</span><span class="stand-info"><strong>Two wheelers</strong><small id="two-status-copy">Loading…</small></span><span class="stand-meter"><em id="two-status-number">—</em></span>
                 </button>
                 <button class="stand-row" type="button" data-action="filter-vehicle" data-type="four-wheeler">
-                  <span class="stand-emoji">🚗</span><span class="stand-info"><strong>Four wheelers</strong><small id="four-status-copy">Loading…</small></span><span class="stand-meter"><i><b id="four-status-bar"></b></i><em id="four-status-number">—</em></span>
+                  <span class="stand-emoji">🚗</span><span class="stand-info"><strong>Four wheelers</strong><small id="four-status-copy">Loading…</small></span><span class="stand-meter"><em id="four-status-number">—</em></span>
                 </button>
               </div>
             </article>
@@ -121,7 +130,7 @@
           </div>
           <div class="entry-layout">
             <form class="surface entry-form" id="entry-form" novalidate>
-              <div class="form-section-label"><span>1</span><div><h2>Vehicle type</h2><p>Select the parking bay needed.</p></div></div>
+              <div class="form-section-label"><span>1</span><div><h2>Vehicle type</h2><p>Choose the vehicle type.</p></div></div>
               <div class="vehicle-choice-group" role="radiogroup" aria-label="Vehicle type">
                 <label class="vehicle-choice is-selected"><input type="radio" name="vehicleType" value="two-wheeler" checked /><span class="vehicle-choice-emoji">🛵</span><span><strong>Two wheeler</strong><small>Bike or scooter</small></span><i>✓</i></label>
                 <label class="vehicle-choice"><input type="radio" name="vehicleType" value="four-wheeler" /><span class="vehicle-choice-emoji">🚗</span><span><strong>Four wheeler</strong><small>Car or SUV</small></span><i>✓</i></label>
@@ -231,6 +240,19 @@
 
     <dialog class="success-dialog" id="success-dialog" aria-labelledby="success-title">
       <div class="success-sheet"><div class="success-burst">✓</div><p class="eyebrow">Parking ticket created</p><h2 id="success-title">Vehicle is parked</h2><p class="success-number" id="success-number">—</p><p class="success-copy" id="success-copy">The parking entry has been saved on this device.</p><div class="success-actions"><button class="button button-quiet" type="button" data-action="close-success">Close</button><button class="button button-primary" type="button" data-go="active" data-action="close-success">View active parking</button></div></div>
+    </dialog>
+
+    <dialog class="install-dialog" id="install-dialog" aria-labelledby="install-title">
+      <section class="dialog-sheet install-sheet">
+        <button class="dialog-close" type="button" data-action="close-install" aria-label="Close install instructions">×</button>
+        <div class="install-logo"><img src="../assets/icon-192.png" alt="Sri Kaliamman Parking app icon" /></div>
+        <p class="eyebrow">Sri Kaliamman Parking</p>
+        <h2 id="install-title">Install the parking app</h2>
+        <p class="install-copy" id="install-message">Install this app on your device for a fast, full-screen parking desk.</p>
+        <ol class="install-steps" id="install-steps"></ol>
+        <button class="button button-primary button-block button-large" type="button" id="install-confirm" data-action="request-install">📲 Install on this device</button>
+        <p class="install-platform-note" id="install-platform-note"></p>
+      </section>
     </dialog>
 
     <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>

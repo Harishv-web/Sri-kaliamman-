@@ -1,13 +1,17 @@
 {
   "name": "Sri Kaliamman Parking",
   "short_name": "Sri Kaliamman",
+  "id": "./app/",
   "description": "Offline-ready two-wheeler and four-wheeler parking management.",
   "lang": "en-IN",
   "start_url": "./app/",
   "scope": "./",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
   "background_color": "#090b0f",
   "theme_color": "#090b0f",
+  "categories": ["business", "productivity"],
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "assets/icon-192.png",

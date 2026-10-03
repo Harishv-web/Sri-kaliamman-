@@ -17,6 +17,8 @@ let activeFilter = 'all';
 let activeQuery = '';
 let checkoutPreview = null;
 let toastTimer = null;
+let deferredInstallPrompt = null;
+const shouldOpenInstall = new URLSearchParams(window.location.search).get('install') === '1';
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
@@ -56,6 +58,120 @@ function showToast(message, type = 'info') {
   $('.toast button', region)?.addEventListener('click', () => { region.innerHTML = ''; });
   toastTimer = setTimeout(() => { region.innerHTML = ''; }, 5200);
 }
+
+function isStandaloneApp() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+function getInstallHelp() {
+  const agent = navigator.userAgent || '';
+  const isIOS = /iPad|iPhone|iPod/.test(agent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isAndroid = /Android/i.test(agent);
+  if (isIOS) {
+    return {
+      message: 'Add Sri Kaliamman Parking to your iPhone or iPad home screen.',
+      steps: ['Tap the Share button in Safari.', 'Choose “Add to Home Screen”.', 'Tap “Add” to install the app icon.'],
+      note: 'For installation on iPhone or iPad, open this site in Safari.',
+    };
+  }
+  if (isAndroid) {
+    return {
+      message: 'Install it once and open the parking desk directly from your Android home screen.',
+      steps: ['Open this page in Google Chrome.', 'Tap the Chrome menu (⋮).', 'Choose “Install app” or “Add to Home screen”.'],
+      note: 'Chrome will install Sri Kaliamman Parking as an Android launcher app.',
+    };
+  }
+  return {
+    message: 'Install it for a focused, full-screen parking desk on this device.',
+    steps: ['Open the browser menu or address bar install icon.', 'Choose “Install Sri Kaliamman Parking”.', 'Open it from your app launcher when installation finishes.'],
+    note: 'If your browser does not show an install option, open this page in Chrome on Android.',
+  };
+}
+
+function updateInstallActions() {
+  const installed = isStandaloneApp();
+  $$('[data-action="show-install"]').forEach((button) => {
+    button.setAttribute('aria-label', installed ? 'Sri Kaliamman Parking is installed' : 'Install Sri Kaliamman Parking app');
+  });
+}
+
+function renderInstallDialog() {
+  const dialog = $('#install-dialog');
+  if (!dialog) return;
+  const installed = isStandaloneApp();
+  const help = getInstallHelp();
+  const title = $('#install-title');
+  const message = $('#install-message');
+  const steps = $('#install-steps');
+  const note = $('#install-platform-note');
+  const button = $('#install-confirm');
+  if (installed) {
+    if (title) title.textContent = 'App already installed';
+    if (message) message.textContent = 'Sri Kaliamman Parking is ready in your home screen or app launcher.';
+    if (steps) steps.innerHTML = '<li>Open Sri Kaliamman Parking from your device’s home screen.</li>';
+    if (note) note.textContent = 'You can continue using this full-screen app offline.';
+    if (button) {
+      button.dataset.action = 'close-install';
+      button.textContent = '✓ Done';
+    }
+    return;
+  }
+  if (title) title.textContent = deferredInstallPrompt ? 'Install the parking app now' : 'Install the parking app';
+  if (message) message.textContent = deferredInstallPrompt ? 'Your browser is ready to install Sri Kaliamman Parking.' : help.message;
+  if (steps) steps.innerHTML = help.steps.map((step) => `<li>${step}</li>`).join('');
+  if (note) note.textContent = deferredInstallPrompt ? 'Tap the button below to complete installation.' : help.note;
+  if (button) {
+    button.dataset.action = 'request-install';
+    button.textContent = deferredInstallPrompt ? '📲 Install on this device' : '📲 Show install steps';
+  }
+}
+
+function showInstallDialog() {
+  const dialog = $('#install-dialog');
+  if (!dialog) return;
+  renderInstallDialog();
+  if (!dialog.open) dialog.showModal();
+}
+
+function closeInstallDialog() {
+  const dialog = $('#install-dialog');
+  if (dialog?.open) dialog.close();
+}
+
+async function requestInstall() {
+  if (isStandaloneApp()) return closeInstallDialog();
+  if (!deferredInstallPrompt) {
+    renderInstallDialog();
+    return showToast('Use the steps shown here to install the app in your browser.', 'info');
+  }
+  try {
+    await deferredInstallPrompt.prompt();
+    const { outcome } = await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    renderInstallDialog();
+    if (outcome === 'accepted') {
+      closeInstallDialog();
+      showToast('Installing Sri Kaliamman Parking…', 'success');
+    }
+  } catch {
+    renderInstallDialog();
+    showToast('The browser did not open its install prompt. Follow the steps shown here.', 'info');
+  }
+}
+
+window.addEventListener('beforeinstallprompt', (event) => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  updateInstallActions();
+  if ($('#install-dialog')?.open) renderInstallDialog();
+});
+
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  updateInstallActions();
+  closeInstallDialog();
+  showToast('Sri Kaliamman Parking is installed and ready to use.', 'success');
+});
 
 function setLoading(button, loading, text = 'Saving…') {
   if (!button) return;
@@ -125,18 +241,18 @@ async function renderDashboard() {
   updateText('#metric-revenue-note', `${dashboard.todayExits} checkout${dashboard.todayExits === 1 ? '' : 's'} today`);
   updateText('#metric-memberships', dashboard.membershipCount);
   updateText('#metric-memberships-note', 'valid parking passes');
-  updateText('#metric-spaces', dashboard.available);
-  updateText('#metric-spaces-note', `${dashboard.capacity} total bays`);
-  updateText('#available-total', dashboard.available);
-  updateText('#occupancy-percent', `${dashboard.occupancy}%`);
-  updateText('#occupancy-summary', `${dashboard.activeCount} of ${dashboard.capacity || 'unlimited'} bays currently in use.`);
+  updateText('#metric-exits', dashboard.todayExits);
+  updateText('#metric-exits-note', 'completed parking');
+  updateText('#today-entry-total', dashboard.todayEntries);
+  updateText('#today-entry-count', dashboard.todayEntries);
+  updateText('#today-activity-summary', `${dashboard.todayExits} exit${dashboard.todayExits === 1 ? '' : 's'} · ${formatMoney(dashboard.todayCollection)} collected today`);
   updateText('#active-nav-count', dashboard.activeCount);
   updateText('#mobile-active-count', dashboard.activeCount);
-  const circle = $('#occupancy-ring-value');
+  const circle = $('#activity-ring-value');
   if (circle) {
     const circumference = 2 * Math.PI * 48;
     circle.style.strokeDasharray = `${circumference}`;
-    circle.style.strokeDashoffset = `${circumference * (1 - dashboard.occupancy / 100)}`;
+    circle.style.strokeDashoffset = '0';
   }
   renderStandRow('two', twoStatus);
   renderStandRow('four', fourStatus);
@@ -147,10 +263,8 @@ async function renderDashboard() {
 
 function renderStandRow(prefix, status) {
   const used = status.active.length;
-  updateText(`#${prefix}-status-copy`, `${used} parked · ${status.available} open`);
-  updateText(`#${prefix}-status-number`, `${used}/${status.capacity || '∞'}`);
-  const bar = $(`#${prefix}-status-bar`);
-  if (bar) bar.style.width = `${status.occupancy}%`;
+  updateText(`#${prefix}-status-copy`, `${status.todayEntries} entries · ${status.todayExits} exits today`);
+  updateText(`#${prefix}-status-number`, `${used} parked`);
 }
 
 async function renderActive() {
@@ -504,6 +618,9 @@ function bindEvents() {
     const action = event.target.closest('[data-action]');
     if (action) {
       const type = action.dataset.action;
+      if (type === 'show-install') return showInstallDialog();
+      if (type === 'request-install') return requestInstall();
+      if (type === 'close-install') return closeInstallDialog();
       if (type === 'open-checkout') return openCheckout(action.dataset.id);
       if (type === 'close-checkout') return closeCheckout();
       if (type === 'close-success') return $('#success-dialog')?.close();
@@ -556,9 +673,11 @@ async function start() {
     selectEntryType('two-wheeler');
     updateEntryPreview();
     await renderAll();
+    updateInstallActions();
     $('#app-loader')?.setAttribute('hidden', '');
     $('#app-shell')?.removeAttribute('hidden');
     setView(location.hash.slice(1) || 'dashboard');
+    if (shouldOpenInstall) window.setTimeout(showInstallDialog, 120);
   } catch (error) {
     const loader = $('#app-loader');
     if (loader) loader.innerHTML = `<div class="loader-logo-wrap"><img src="../assets/sri-kaliamman-logo.jpg" alt="Sri Kaliamman Parking" /></div><p><strong>Parking data could not start.</strong><br />${escapeHtml(error.message || 'Please open the app in a modern browser with local storage enabled.')}</p>`;
@@ -566,7 +685,9 @@ async function start() {
 }
 
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('../sw.js', { scope: '../' }));
+  navigator.serviceWorker.register('../sw.js', { scope: '../' }).catch(() => {
+    // The online app still works when a browser blocks service workers.
+  });
 }
 
 start();
