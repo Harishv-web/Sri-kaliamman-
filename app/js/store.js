@@ -124,6 +124,24 @@ export function normalizeVehicleNumber(value) {
   return cleaned;
 }
 
+export function formatVehicleNumber(value, { trailingSeparator = false } = {}) {
+  const compact = String(value || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, 16);
+  if (!compact) return '';
+
+  const groups = [
+    compact.slice(0, 2),
+    compact.slice(2, 4),
+    compact.slice(4, 6),
+    compact.slice(6, 10),
+    compact.slice(10),
+  ].filter(Boolean);
+  const formatted = groups.join(' ');
+  return trailingSeparator && [2, 4, 6].includes(compact.length) ? `${formatted} ` : formatted;
+}
+
 export function validateVehicleNumber(value) {
   const vehicleNumber = normalizeVehicleNumber(value);
   const compact = vehicleNumber.replace(/\s/g, '');

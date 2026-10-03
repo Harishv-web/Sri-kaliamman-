@@ -5,3 +5,6 @@
 node_modules/
 dist/
 .npm-cache/
+android-apk/app/src/main/assets/www/
+android-apk/app/src/main/res/drawable/sri_kaliamman_icon.png
+android-apk/dist/

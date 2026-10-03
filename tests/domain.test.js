@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   calculateParkingCharge,
+  formatVehicleNumber,
   formatDuration,
   normalizeVehicleNumber,
   validateVehicleNumber,
@@ -10,6 +11,15 @@ import {
 test('vehicle registrations are normalised into a clear uppercase form', () => {
   assert.equal(normalizeVehicleNumber(' tn-38  ab   1234 '), 'TN 38 AB 1234');
   assert.equal(validateVehicleNumber('tn 38 ab 1234'), 'TN 38 AB 1234');
+});
+
+test('vehicle registration input receives standard readable spacing while typing', () => {
+  assert.equal(formatVehicleNumber('tn'), 'TN');
+  assert.equal(formatVehicleNumber('tn', { trailingSeparator: true }), 'TN ');
+  assert.equal(formatVehicleNumber('tn38', { trailingSeparator: true }), 'TN 38 ');
+  assert.equal(formatVehicleNumber('tn38ab', { trailingSeparator: true }), 'TN 38 AB ');
+  assert.equal(formatVehicleNumber('tn38ab1234'), 'TN 38 AB 1234');
+  assert.equal(formatVehicleNumber('tn-38 ab 1234'), 'TN 38 AB 1234');
 });
 
 test('invalid vehicle registration is rejected before an entry is created', () => {

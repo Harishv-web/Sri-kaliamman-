@@ -6,10 +6,10 @@
     <meta name="theme-color" content="#111827" />
     <meta name="color-scheme" content="dark light" />
     <title>Sri Kaliamman Parking</title>
-    <link rel="manifest" href="../manifest.webmanifest?v=4" />
+    <link rel="manifest" href="../manifest.webmanifest?v=6" />
     <link rel="icon" type="image/png" href="../assets/icon-192.png" />
     <link rel="apple-touch-icon" href="../assets/icon-192.png" />
-    <link rel="stylesheet" href="./app.css?v=4" />
+    <link rel="stylesheet" href="./app.css?v=6" />
   </head>
   <body>
     <div class="app-loader" id="app-loader" aria-live="polite">
@@ -35,11 +35,6 @@
         </nav>
 
         <div class="rail-foot">
-          <button class="install-panel" type="button" data-action="show-install">
-            <span>📲</span>
-            <span><strong>Install app</strong><small>Use it from your home screen</small></span>
-            <span aria-hidden="true">→</span>
-          </button>
           <button class="sync-panel" type="button" id="sync-button" aria-label="Sync local parking data">
             <span class="sync-dot" id="sync-dot"></span>
             <span><strong id="sync-label">Local data</strong><small id="sync-detail">Ready offline</small></span>
@@ -53,10 +48,6 @@
           <img src="../assets/sri-kaliamman-logo.jpg" alt="" />
           <span><strong class="data-stand-name">Sri Kaliamman Parking</strong><small>Parking control</small></span>
         </a>
-        <div class="mobile-actions">
-          <button class="top-install" type="button" data-action="show-install" aria-label="Install Sri Kaliamman Parking app">📲</button>
-          <button class="top-sync" type="button" id="mobile-sync-button" aria-label="Sync local parking data"><span id="mobile-sync-icon">↻</span></button>
-        </div>
       </div>
 
       <main class="main-content">
@@ -67,11 +58,7 @@
               <h1 id="dashboard-title">Parking control</h1>
               <p class="page-lead">Monitor vehicle activity, payments, and daily exits in one place.</p>
             </div>
-            <div class="heading-actions">
-              <button class="button button-quiet" type="button" data-action="show-install"><span>📲</span> Install app</button>
-              <button class="button button-quiet icon-button" type="button" data-action="refresh-dashboard" aria-label="Refresh dashboard">↻</button>
-              <button class="button button-primary" type="button" data-go="entry"><span>＋</span> Park a vehicle</button>
-            </div>
+            <div class="heading-actions"><button class="button button-primary" type="button" data-go="entry"><span>＋</span> Park a vehicle</button></div>
           </div>
 
           <div class="occupancy-banner" id="activity-banner">
@@ -85,7 +72,7 @@
           </div>
 
           <div class="metric-grid" aria-label="Dashboard totals">
-            <article class="metric-card metric-active"><span class="metric-icon">🛵</span><div><p>Parked now</p><strong id="metric-active">—</strong><small id="metric-active-note">vehicles on site</small></div></article>
+            <article class="metric-card metric-active"><span class="metric-icon" aria-hidden="true">🛵</span><div><p>Parked now</p><strong id="metric-active">—</strong><small id="metric-active-note">🛵 0 · 🚗 0</small></div></article>
             <article class="metric-card metric-income"><span class="metric-icon">₹</span><div><p>Today collected</p><strong id="metric-revenue">—</strong><small id="metric-revenue-note">completed parking</small></div></article>
             <article class="metric-card metric-pass"><span class="metric-icon">◇</span><div><p>Active passes</p><strong id="metric-memberships">—</strong><small id="metric-memberships-note">membership vehicles</small></div></article>
             <article class="metric-card metric-exit"><span class="metric-icon">↗</span><div><p>Today’s exits</p><strong id="metric-exits">—</strong><small id="metric-exits-note">completed parking</small></div></article>
@@ -137,8 +124,8 @@
               </div>
               <div class="form-section-label"><span>2</span><div><h2>Vehicle number</h2><p>Use the registration as the ticket reference.</p></div></div>
               <label class="field-label" for="entry-vehicle-number">Registration number</label>
-              <div class="vehicle-input-wrap"><span class="plate-prefix">IND</span><input id="entry-vehicle-number" name="vehicleNumber" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="16" placeholder="TN 00 AB 0000" aria-describedby="entry-number-help" required /><span class="plate-badge" id="plate-type-badge">🛵</span></div>
-              <p class="field-help" id="entry-number-help">Spaces and hyphens are accepted. The number will be saved in uppercase.</p>
+              <div class="vehicle-input-wrap"><span class="plate-prefix">IND</span><input id="entry-vehicle-number" name="vehicleNumber" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="19" placeholder="TN 00 AB 0000" aria-describedby="entry-number-help" data-vehicle-format required /><span class="plate-badge" id="plate-type-badge">🛵</span></div>
+              <p class="field-help" id="entry-number-help">Spaces are added automatically as you type, and the registration is saved in uppercase.</p>
               <div class="entry-form-footer"><span class="local-note"><i></i> Saved on this device</span><button class="button button-primary button-large" type="submit"><span>🅿</span> Create parking ticket</button></div>
             </form>
             <aside class="entry-aside">
@@ -172,7 +159,7 @@
             <form class="surface membership-form" id="membership-form" novalidate hidden>
               <div class="form-card-heading"><div><p class="eyebrow" id="membership-form-kicker">New monthly pass</p><h2 id="membership-form-title">Add membership</h2></div><button type="button" class="close-form" id="hide-membership-form" aria-label="Close membership form">×</button></div>
               <input type="hidden" id="membership-id" name="membershipId" />
-              <label class="field-label" for="membership-number">Vehicle number</label><input class="form-input uppercase-input" id="membership-number" name="vehicleNumber" type="text" maxlength="16" placeholder="TN 00 AB 0000" autocomplete="off" required />
+              <label class="field-label" for="membership-number">Vehicle number</label><input class="form-input uppercase-input" id="membership-number" name="vehicleNumber" type="text" maxlength="19" placeholder="TN 00 AB 0000" autocomplete="off" data-vehicle-format required />
               <label class="field-label" for="membership-type">Vehicle type</label><select class="form-input" id="membership-type" name="vehicleType"><option value="two-wheeler">🛵 Two wheeler</option><option value="four-wheeler">🚗 Four wheeler</option></select>
               <div class="form-two-col"><div><label class="field-label" for="membership-start">Starts</label><input class="form-input" id="membership-start" name="startDate" type="date" required /></div><div><label class="field-label" for="membership-end">Ends</label><input class="form-input" id="membership-end" name="endDate" type="date" required /></div></div>
               <label class="field-label" for="membership-amount">Pass amount</label><div class="money-input"><span>₹</span><input id="membership-amount" class="form-input" name="amount" type="number" min="0" step="1" placeholder="0" /></div>
@@ -242,21 +229,8 @@
       <div class="success-sheet"><div class="success-burst">✓</div><p class="eyebrow">Parking ticket created</p><h2 id="success-title">Vehicle is parked</h2><p class="success-number" id="success-number">—</p><p class="success-copy" id="success-copy">The parking entry has been saved on this device.</p><div class="success-actions"><button class="button button-quiet" type="button" data-action="close-success">Close</button><button class="button button-primary" type="button" data-go="active" data-action="close-success">View active parking</button></div></div>
     </dialog>
 
-    <dialog class="install-dialog" id="install-dialog" aria-labelledby="install-title">
-      <section class="dialog-sheet install-sheet">
-        <button class="dialog-close" type="button" data-action="close-install" aria-label="Close install instructions">×</button>
-        <div class="install-logo"><img src="../assets/icon-192.png" alt="Sri Kaliamman Parking app icon" /></div>
-        <p class="eyebrow">Sri Kaliamman Parking</p>
-        <h2 id="install-title">Install the parking app</h2>
-        <p class="install-copy" id="install-message">Install this app on your device for a fast, full-screen parking desk.</p>
-        <ol class="install-steps" id="install-steps"></ol>
-        <button class="button button-primary button-block button-large" type="button" id="install-confirm" data-action="request-install">📲 Install on this device</button>
-        <p class="install-platform-note" id="install-platform-note"></p>
-      </section>
-    </dialog>
-
     <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
     <script src="./sync-config.js"></script>
-    <script type="module" src="./app.js?v=4"></script>
+    <script type="module" src="./app.js?v=6"></script>
   </body>
 </html>

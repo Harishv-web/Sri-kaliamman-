@@ -2,9 +2,10 @@ import {
   parkingStore,
   calculateParkingCharge,
   formatDuration,
+  formatVehicleNumber,
   getVehicleMeta,
   normalizeVehicleNumber,
-} from './js/store.js';
+} from './js/store.js?v=6';
 
 const $ = (selector, parent = document) => parent.querySelector(selector);
 const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector)];
@@ -17,8 +18,6 @@ let activeFilter = 'all';
 let activeQuery = '';
 let checkoutPreview = null;
 let toastTimer = null;
-let deferredInstallPrompt = null;
-const shouldOpenInstall = new URLSearchParams(window.location.search).get('install') === '1';
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
@@ -58,120 +57,6 @@ function showToast(message, type = 'info') {
   $('.toast button', region)?.addEventListener('click', () => { region.innerHTML = ''; });
   toastTimer = setTimeout(() => { region.innerHTML = ''; }, 5200);
 }
-
-function isStandaloneApp() {
-  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-}
-
-function getInstallHelp() {
-  const agent = navigator.userAgent || '';
-  const isIOS = /iPad|iPhone|iPod/.test(agent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  const isAndroid = /Android/i.test(agent);
-  if (isIOS) {
-    return {
-      message: 'Add Sri Kaliamman Parking to your iPhone or iPad home screen.',
-      steps: ['Tap the Share button in Safari.', 'Choose “Add to Home Screen”.', 'Tap “Add” to install the app icon.'],
-      note: 'For installation on iPhone or iPad, open this site in Safari.',
-    };
-  }
-  if (isAndroid) {
-    return {
-      message: 'Install it once and open the parking desk directly from your Android home screen.',
-      steps: ['Open this page in Google Chrome.', 'Tap the Chrome menu (⋮).', 'Choose “Install app” or “Add to Home screen”.'],
-      note: 'Chrome will install Sri Kaliamman Parking as an Android launcher app.',
-    };
-  }
-  return {
-    message: 'Install it for a focused, full-screen parking desk on this device.',
-    steps: ['Open the browser menu or address bar install icon.', 'Choose “Install Sri Kaliamman Parking”.', 'Open it from your app launcher when installation finishes.'],
-    note: 'If your browser does not show an install option, open this page in Chrome on Android.',
-  };
-}
-
-function updateInstallActions() {
-  const installed = isStandaloneApp();
-  $$('[data-action="show-install"]').forEach((button) => {
-    button.setAttribute('aria-label', installed ? 'Sri Kaliamman Parking is installed' : 'Install Sri Kaliamman Parking app');
-  });
-}
-
-function renderInstallDialog() {
-  const dialog = $('#install-dialog');
-  if (!dialog) return;
-  const installed = isStandaloneApp();
-  const help = getInstallHelp();
-  const title = $('#install-title');
-  const message = $('#install-message');
-  const steps = $('#install-steps');
-  const note = $('#install-platform-note');
-  const button = $('#install-confirm');
-  if (installed) {
-    if (title) title.textContent = 'App already installed';
-    if (message) message.textContent = 'Sri Kaliamman Parking is ready in your home screen or app launcher.';
-    if (steps) steps.innerHTML = '<li>Open Sri Kaliamman Parking from your device’s home screen.</li>';
-    if (note) note.textContent = 'You can continue using this full-screen app offline.';
-    if (button) {
-      button.dataset.action = 'close-install';
-      button.textContent = '✓ Done';
-    }
-    return;
-  }
-  if (title) title.textContent = deferredInstallPrompt ? 'Install the parking app now' : 'Install the parking app';
-  if (message) message.textContent = deferredInstallPrompt ? 'Your browser is ready to install Sri Kaliamman Parking.' : help.message;
-  if (steps) steps.innerHTML = help.steps.map((step) => `<li>${step}</li>`).join('');
-  if (note) note.textContent = deferredInstallPrompt ? 'Tap the button below to complete installation.' : help.note;
-  if (button) {
-    button.dataset.action = 'request-install';
-    button.textContent = deferredInstallPrompt ? '📲 Install on this device' : '📲 Show install steps';
-  }
-}
-
-function showInstallDialog() {
-  const dialog = $('#install-dialog');
-  if (!dialog) return;
-  renderInstallDialog();
-  if (!dialog.open) dialog.showModal();
-}
-
-function closeInstallDialog() {
-  const dialog = $('#install-dialog');
-  if (dialog?.open) dialog.close();
-}
-
-async function requestInstall() {
-  if (isStandaloneApp()) return closeInstallDialog();
-  if (!deferredInstallPrompt) {
-    renderInstallDialog();
-    return showToast('Use the steps shown here to install the app in your browser.', 'info');
-  }
-  try {
-    await deferredInstallPrompt.prompt();
-    const { outcome } = await deferredInstallPrompt.userChoice;
-    deferredInstallPrompt = null;
-    renderInstallDialog();
-    if (outcome === 'accepted') {
-      closeInstallDialog();
-      showToast('Installing Sri Kaliamman Parking…', 'success');
-    }
-  } catch {
-    renderInstallDialog();
-    showToast('The browser did not open its install prompt. Follow the steps shown here.', 'info');
-  }
-}
-
-window.addEventListener('beforeinstallprompt', (event) => {
-  event.preventDefault();
-  deferredInstallPrompt = event;
-  updateInstallActions();
-  if ($('#install-dialog')?.open) renderInstallDialog();
-});
-
-window.addEventListener('appinstalled', () => {
-  deferredInstallPrompt = null;
-  updateInstallActions();
-  closeInstallDialog();
-  showToast('Sri Kaliamman Parking is installed and ready to use.', 'success');
-});
 
 function setLoading(button, loading, text = 'Saving…') {
   if (!button) return;
@@ -236,7 +121,7 @@ async function renderDashboard() {
     parkingStore.getStatus('four-wheeler'),
   ]);
   updateText('#metric-active', dashboard.activeCount);
-  updateText('#metric-active-note', `${dashboard.activeTwo} 🛵 · ${dashboard.activeFour} 🚗`);
+  updateText('#metric-active-note', `🛵 ${dashboard.activeTwo}  ·  🚗 ${dashboard.activeFour}`);
   updateText('#metric-revenue', formatMoney(dashboard.todayCollection));
   updateText('#metric-revenue-note', `${dashboard.todayExits} checkout${dashboard.todayExits === 1 ? '' : 's'} today`);
   updateText('#metric-memberships', dashboard.membershipCount);
@@ -563,7 +448,7 @@ async function handleSyncConfig(event) {
 }
 
 async function handleSync() {
-  const buttons = ['#sync-button', '#mobile-sync-button', '#settings-sync-button'].map((selector) => $(selector)).filter(Boolean);
+  const buttons = ['#sync-button', '#settings-sync-button'].map((selector) => $(selector)).filter(Boolean);
   buttons.forEach((button) => button.disabled = true);
   try {
     const result = await parkingStore.syncNow();
@@ -598,6 +483,34 @@ function updateEntryPreview() {
   updateText('#preview-number', number);
 }
 
+function compactCharactersBeforeCursor(input) {
+  const cursor = input.selectionStart ?? input.value.length;
+  return input.value.slice(0, cursor).replace(/[^A-Z0-9]/gi, '').length;
+}
+
+function cursorForCompactCharacters(value, characters) {
+  let seen = 0;
+  let position = 0;
+  while (position < value.length && seen < characters) {
+    if (/[A-Z0-9]/i.test(value[position])) seen += 1;
+    position += 1;
+  }
+  return position;
+}
+
+function formatRegistrationInput(event) {
+  const input = event.currentTarget;
+  const compactCursor = compactCharactersBeforeCursor(input);
+  const isDeleting = event.inputType?.startsWith('delete');
+  const formatted = formatVehicleNumber(input.value, { trailingSeparator: !isDeleting });
+  if (input.value !== formatted) {
+    input.value = formatted;
+    const cursor = cursorForCompactCharacters(formatted, compactCursor);
+    input.setSelectionRange(cursor, cursor);
+  }
+  if (input.id === 'entry-vehicle-number') updateEntryPreview();
+}
+
 function bindEvents() {
   window.addEventListener('hashchange', () => setView(location.hash.slice(1) || 'dashboard'));
   document.addEventListener('click', async (event) => {
@@ -618,13 +531,9 @@ function bindEvents() {
     const action = event.target.closest('[data-action]');
     if (action) {
       const type = action.dataset.action;
-      if (type === 'show-install') return showInstallDialog();
-      if (type === 'request-install') return requestInstall();
-      if (type === 'close-install') return closeInstallDialog();
       if (type === 'open-checkout') return openCheckout(action.dataset.id);
       if (type === 'close-checkout') return closeCheckout();
       if (type === 'close-success') return $('#success-dialog')?.close();
-      if (type === 'refresh-dashboard') return renderAll();
       if (type === 'filter-vehicle') {
         activeFilter = action.dataset.type;
         setView('active');
@@ -648,7 +557,7 @@ function bindEvents() {
       activeQuery = '';
       return renderActive();
     }
-    if (event.target.closest('#sync-button') || event.target.closest('#mobile-sync-button') || event.target.closest('#settings-sync-button')) return handleSync();
+    if (event.target.closest('#sync-button') || event.target.closest('#settings-sync-button')) return handleSync();
     if (event.target.closest('#apply-report-filter')) return renderReports();
     if (event.target.closest('#export-report')) return exportReport();
   });
@@ -657,7 +566,7 @@ function bindEvents() {
   $('#membership-form')?.addEventListener('submit', handleMembership);
   $('#settings-form')?.addEventListener('submit', handleSettings);
   $('#sync-config-form')?.addEventListener('submit', handleSyncConfig);
-  $('#entry-vehicle-number')?.addEventListener('input', updateEntryPreview);
+  $$('[data-vehicle-format]').forEach((input) => input.addEventListener('input', formatRegistrationInput));
   $$('input[name="vehicleType"]').forEach((input) => input.addEventListener('change', () => selectEntryType(input.value)));
   $('#active-search')?.addEventListener('input', (event) => { activeQuery = event.target.value; renderActive(); });
   $('#membership-filter')?.addEventListener('change', renderMemberships);
@@ -673,11 +582,9 @@ async function start() {
     selectEntryType('two-wheeler');
     updateEntryPreview();
     await renderAll();
-    updateInstallActions();
     $('#app-loader')?.setAttribute('hidden', '');
     $('#app-shell')?.removeAttribute('hidden');
     setView(location.hash.slice(1) || 'dashboard');
-    if (shouldOpenInstall) window.setTimeout(showInstallDialog, 120);
   } catch (error) {
     const loader = $('#app-loader');
     if (loader) loader.innerHTML = `<div class="loader-logo-wrap"><img src="../assets/sri-kaliamman-logo.jpg" alt="Sri Kaliamman Parking" /></div><p><strong>Parking data could not start.</strong><br />${escapeHtml(error.message || 'Please open the app in a modern browser with local storage enabled.')}</p>`;

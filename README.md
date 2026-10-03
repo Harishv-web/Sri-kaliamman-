@@ -9,7 +9,7 @@ A mobile-first, offline-ready Progressive Web App for a two-wheeler and four-whe
 - 24-hour billing (₹15 two-wheeler / ₹70 four-wheeler by default), with configurable rates and capacities
 - Checkout bill, received amount, change, due amount, and preserved history
 - Dashboard, current vehicles, membership passes, reporting, CSV export, and daily vehicle activity views
-- IndexedDB persistence, offline use, web manifest, service worker, and Android home-screen installation support
+- IndexedDB persistence, offline use, web manifest, service worker, and a direct Android APK build
 
 The application has no customer accounts, staff accounts, passwords, or customer PII. Vehicle registration number is the only customer-related field.
 
@@ -38,9 +38,9 @@ GitHub Pages can serve this repository directly from the `main` branch root. Aft
 
 `https://harishv-web.github.io/Sri-kaliamman-/`
 
-The page opens an in-app **Install app** screen. On Android Chrome, tap **Install on this device** when the browser is ready, or use Chrome's ⋮ menu and choose **Install app** / **Add to Home screen**. The installed application starts at the parking dashboard and behaves like a launcher app.
+The public **Download Android APK** button downloads `Sri-Kaliamman-Parking.apk` directly from the repository release; it does not open an app preview or require Add to Home Screen. The APK bundles the parking app and starts directly at the parking dashboard.
 
-This is a Progressive Web App, so there is no misleading APK download link. Publishing a separate Google Play Store listing requires the owner's verified Play Console account and a signed Android release package.
+Android may ask once for permission to install an app downloaded from the browser. This is the normal device security confirmation for direct APK installs. A later Google Play Store listing still requires the owner's verified Play Console account and its release-signing setup.
 
 ## Central shared sync
 
@@ -54,6 +54,8 @@ Until then, the app labels its state clearly as **Local data** and safely queues
 index.html / site.css / site.js       public install landing page
 app/                                  installed parking application
 app/js/store.js                       IndexedDB domain, billing, queue, optional sync client
+android-apk/                          Native Android WebView wrapper source
+.github/workflows/android-apk.yml     Builds and publishes the direct APK
 supabase/                             secure central-sync migration and Edge Functions
 tests/                                deterministic domain tests
 ```

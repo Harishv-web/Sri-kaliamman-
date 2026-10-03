@@ -1,19 +1,19 @@
-const CACHE_NAME = 'sri-kaliamman-v4';
+const CACHE_NAME = 'sri-kaliamman-v6';
 const APP_SHELL = [
   './',
   './index.html',
-  './site.css?v=4',
-  './site.js?v=4',
-  './manifest.webmanifest?v=4',
+  './site.css?v=6',
+  './site.js?v=6',
+  './manifest.webmanifest?v=6',
   './assets/sri-kaliamman-logo.jpg',
   './assets/icon-192.png',
   './assets/icon-512.png',
   './app/',
   './app/index.html',
-  './app/app.css?v=4',
-  './app/app.js?v=4',
+  './app/app.css?v=6',
+  './app/app.js?v=6',
   './app/sync-config.js',
-  './app/js/store.js'
+  './app/js/store.js?v=6'
 ];
 
 self.addEventListener('install', (event) => {
