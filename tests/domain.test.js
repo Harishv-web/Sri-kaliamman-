@@ -42,3 +42,16 @@ test('membership discount and duration formatting remain predictable', () => {
   assert.equal(result.parkingCharge, 105);
   assert.equal(formatDuration(90 * 60 * 1000), '1h 30m');
 });
+
+test('receipt helpers validate phones and build a professional message', async () => {
+  const { normalizePhoneNumber, buildReceiptNumber, buildReceiptMessage } = await import('../app/js/store.js');
+  assert.equal(normalizePhoneNumber('98765 43210'), '919876543210');
+  assert.equal(normalizePhoneNumber('+91 98765-43210'), '919876543210');
+  assert.equal(normalizePhoneNumber('12345'), '');
+  assert.equal(normalizePhoneNumber('5876543210'), '');
+  const record = { serial: '482AB', vehicleNumber: 'TN 38 AB 1234', vehicleType: 'two-wheeler', entryAt: '2026-10-04T04:00:00.000Z', checkoutAt: '2026-10-04T06:30:00.000Z', durationMs: 9000000, parkingCharge: 40, amountPaid: 30, dueAmount: 10 };
+  assert.match(buildReceiptNumber(record), /^SKP-\d{8}-482AB$/);
+  const text = buildReceiptMessage(record, { standName: 'Sri Kaliamman Parking' });
+  for (const part of ['*Sri Kaliamman Parking*', 'TN 38 AB 1234', 'Two wheeler Stand', 'Balance due: ₹10', 'Receipt No: SKP-']) assert.ok(text.includes(part), part);
+  assert.ok(buildReceiptMessage({ ...record, amountPaid: 40, dueAmount: 0 }).includes('Paid in full'));
+});

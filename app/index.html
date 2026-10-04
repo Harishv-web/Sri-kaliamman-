@@ -6,10 +6,10 @@
     <meta name="theme-color" content="#111827" />
     <meta name="color-scheme" content="dark light" />
     <title>Sri Kaliamman Parking</title>
-    <link rel="manifest" href="../manifest.webmanifest?v=6" />
+    <link rel="manifest" href="../manifest.webmanifest?v=7" />
     <link rel="icon" type="image/png" href="../assets/icon-192.png" />
     <link rel="apple-touch-icon" href="../assets/icon-192.png" />
-    <link rel="stylesheet" href="./app.css?v=6" />
+    <link rel="stylesheet" href="./app.css?v=7" />
   </head>
   <body>
     <div class="app-loader" id="app-loader" aria-live="polite">
@@ -113,7 +113,7 @@
         <section class="view" id="view-entry" data-view="entry" aria-labelledby="entry-title">
           <div class="page-heading">
             <div><p class="eyebrow">New parking ticket</p><h1 id="entry-title">Park a vehicle</h1><p class="page-lead">Add a vehicle in seconds. The entry time is recorded automatically.</p></div>
-            <button class="button button-quiet" type="button" data-go="active">View active parking</button>
+            <button class="button button-quiet" type="button" data-action="open-receipts">🧾 Digital receipts</button>
           </div>
           <div class="entry-layout">
             <form class="surface entry-form" id="entry-form" novalidate>
@@ -225,12 +225,28 @@
       </form>
     </dialog>
 
+    <dialog class="checkout-dialog" id="receipt-dialog" aria-labelledby="receipt-title">
+      <div class="dialog-sheet">
+        <button class="dialog-close" type="button" data-action="close-receipt" aria-label="Close receipts">×</button>
+        <div class="dialog-top"><span class="dialog-vehicle">🧾</span><div><p class="eyebrow">Digital receipts</p><h2 id="receipt-title">Send receipt</h2></div></div>
+        <div id="receipt-picker" hidden><p class="field-help">Choose a completed ticket to send its receipt.</p><div class="receipt-list" id="receipt-list"></div></div>
+        <div id="receipt-compose" hidden>
+          <div class="checkout-ticket"><div class="checkout-ticket-top"><span id="receipt-number">—</span><strong id="receipt-vehicle">—</strong></div><div class="checkout-ticket-meta"><span><small>Parking charge</small><b id="receipt-charge">—</b></span><span><small>Balance due</small><b id="receipt-due">—</b></span></div></div>
+          <label class="field-label" for="receipt-phone">Customer mobile number</label>
+          <div class="checkout-paid-input"><span>+91</span><input id="receipt-phone" type="tel" inputmode="numeric" autocomplete="tel-national" maxlength="14" placeholder="98765 43210" /></div>
+          <p class="receipt-error" id="receipt-error" role="alert"></p>
+          <div class="receipt-actions"><button class="button button-primary" type="button" data-action="receipt-whatsapp">Send via WhatsApp</button><button class="button button-quiet" type="button" data-action="receipt-sms">Send via SMS</button></div>
+          <button class="text-button receipt-back" type="button" data-action="open-receipts" id="receipt-back" hidden>← All receipts</button>
+        </div>
+      </div>
+    </dialog>
+
     <dialog class="success-dialog" id="success-dialog" aria-labelledby="success-title">
       <div class="success-sheet"><div class="success-burst">✓</div><p class="eyebrow">Parking ticket created</p><h2 id="success-title">Vehicle is parked</h2><p class="success-number" id="success-number">—</p><p class="success-copy" id="success-copy">The parking entry has been saved on this device.</p><div class="success-actions"><button class="button button-quiet" type="button" data-action="close-success">Close</button><button class="button button-primary" type="button" data-go="active" data-action="close-success">View active parking</button></div></div>
     </dialog>
 
     <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
     <script src="./sync-config.js"></script>
-    <script type="module" src="./app.js?v=6"></script>
+    <script type="module" src="./app.js?v=7"></script>
   </body>
 </html>

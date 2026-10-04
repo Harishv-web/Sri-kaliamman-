@@ -59,3 +59,7 @@ android-apk/                          Native Android WebView wrapper source
 supabase/                             secure central-sync migration and Edge Functions
 tests/                                deterministic domain tests
 ```
+
+## Digital receipts
+
+After checkout the app offers a branded receipt (unique receipt number, vehicle, entry/exit time, charge, paid and due amounts) that can be sent to the customer by WhatsApp or SMS. Past tickets are available from **Digital receipts** on the Park a vehicle screen.

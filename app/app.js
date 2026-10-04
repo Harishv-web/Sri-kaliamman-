@@ -5,7 +5,10 @@ import {
   formatVehicleNumber,
   getVehicleMeta,
   normalizeVehicleNumber,
-} from './js/store.js?v=6';
+  normalizePhoneNumber,
+  buildReceiptMessage,
+  buildReceiptNumber,
+} from './js/store.js?v=7';
 
 const $ = (selector, parent = document) => parent.querySelector(selector);
 const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector)];
@@ -17,6 +20,8 @@ const timeFormat = new Intl.DateTimeFormat('en-IN', { hour: '2-digit', minute: '
 let activeFilter = 'all';
 let activeQuery = '';
 let checkoutPreview = null;
+let receiptRecord = null;
+let receiptFromList = false;
 let toastTimer = null;
 
 function escapeHtml(value) {
@@ -374,6 +379,7 @@ async function handleCheckout(event) {
     closeCheckout();
     showToast(`Checkout completed for ${completed.vehicleNumber}.`, 'success');
     await renderAll();
+    showReceipt(completed);
   } catch (error) {
     showToast(error.message || 'Checkout could not be completed.', 'error');
   } finally {
@@ -511,6 +517,67 @@ function formatRegistrationInput(event) {
   if (input.id === 'entry-vehicle-number') updateEntryPreview();
 }
 
+function showReceipt(record, fromList = false) {
+  receiptRecord = record;
+  receiptFromList = fromList;
+  updateText('#receipt-number', buildReceiptNumber(record));
+  updateText('#receipt-vehicle', record.vehicleNumber);
+  updateText('#receipt-charge', formatMoney(record.parkingCharge));
+  updateText('#receipt-due', formatMoney(record.dueAmount));
+  updateText('#receipt-error', '');
+  const phone = $('#receipt-phone');
+  if (phone) phone.value = '';
+  $('#receipt-picker').hidden = true;
+  $('#receipt-compose').hidden = false;
+  $('#receipt-back').hidden = !fromList;
+  const dialog = $('#receipt-dialog');
+  if (dialog && !dialog.open) dialog.showModal();
+}
+
+async function openReceiptPicker() {
+  try {
+    const records = (await parkingStore.listTransactions()).slice(0, 10);
+    const list = $('#receipt-list');
+    list.innerHTML = records.length
+      ? records.map((record) => `<button class="receipt-row" type="button" data-action="select-receipt" data-id="${escapeHtml(record.id)}"><span><b>${escapeHtml(record.vehicleNumber)}</b><small>${escapeHtml(buildReceiptNumber(record))} \u00b7 ${escapeHtml(formatDateTime(record.checkoutAt))}</small></span><span>Send</span></button>`).join('')
+      : '<div class="empty-inline">No completed tickets yet. Receipts appear here after checkout.</div>';
+    $('#receipt-compose').hidden = true;
+    $('#receipt-picker').hidden = false;
+    const dialog = $('#receipt-dialog');
+    if (dialog && !dialog.open) dialog.showModal();
+  } catch (error) {
+    showToast(error.message || 'Receipts could not be loaded.', 'error');
+  }
+}
+
+async function selectReceipt(id) {
+  const record = (await parkingStore.listTransactions()).find((item) => item.id === id);
+  if (!record) return showToast('This ticket could not be found.', 'error');
+  showReceipt(record, true);
+}
+
+async function sendReceipt(channel) {
+  if (!receiptRecord) return;
+  const phone = normalizePhoneNumber($('#receipt-phone')?.value);
+  if (!phone) {
+    updateText('#receipt-error', 'Enter a valid 10-digit Indian mobile number.');
+    $('#receipt-phone')?.focus();
+    return;
+  }
+  updateText('#receipt-error', '');
+  const message = buildReceiptMessage(receiptRecord, await parkingStore.getSettings());
+  const url = channel === 'whatsapp'
+    ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
+    : `sms:+${phone}?&body=${encodeURIComponent(message)}`;
+  const link = document.createElement('a');
+  link.href = url;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  document.body.append(link);
+  link.click();
+  link.remove();
+}
+
 function bindEvents() {
   window.addEventListener('hashchange', () => setView(location.hash.slice(1) || 'dashboard'));
   document.addEventListener('click', async (event) => {
@@ -534,6 +601,11 @@ function bindEvents() {
       if (type === 'open-checkout') return openCheckout(action.dataset.id);
       if (type === 'close-checkout') return closeCheckout();
       if (type === 'close-success') return $('#success-dialog')?.close();
+      if (type === 'open-receipts') return openReceiptPicker();
+      if (type === 'close-receipt') return $('#receipt-dialog')?.close();
+      if (type === 'select-receipt') return selectReceipt(action.dataset.id);
+      if (type === 'receipt-whatsapp') return sendReceipt('whatsapp');
+      if (type === 'receipt-sms') return sendReceipt('sms');
       if (type === 'filter-vehicle') {
         activeFilter = action.dataset.type;
         setView('active');

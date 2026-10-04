@@ -618,3 +618,47 @@ export class ParkingStore {
 }
 
 export const parkingStore = new ParkingStore();
+
+const receiptDate = new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+const receiptMoney = (value) => `₹${Math.round(Number(value) || 0).toLocaleString('en-IN')}`;
+
+/** Returns an international Indian mobile number (91XXXXXXXXXX) or '' when invalid. */
+export function normalizePhoneNumber(value) {
+  let digits = String(value || '').replace(/\D/g, '');
+  if (digits.length === 12 && digits.startsWith('91')) digits = digits.slice(2);
+  else if (digits.length === 11 && digits.startsWith('0')) digits = digits.slice(1);
+  return /^[6-9]\d{9}$/.test(digits) ? `91${digits}` : '';
+}
+
+/** Unique per ticket because the parking serial is unique. */
+export function buildReceiptNumber(record) {
+  const d = new Date(record.checkoutAt);
+  const day = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+  return `SKP-${day}-${record.serial}`;
+}
+
+export function buildReceiptMessage(record, settings = {}) {
+  const stand = settings.standName || DEFAULT_SETTINGS.standName;
+  const meta = getVehicleMeta(record.vehicleType);
+  const due = Number(record.dueAmount) || 0;
+  return [
+    `*${stand}*`,
+    'Digital Parking Receipt',
+    '',
+    `Receipt No: ${buildReceiptNumber(record)}`,
+    `Ticket No: ${record.serial}`,
+    `Vehicle: ${record.vehicleNumber}`,
+    `Stand: ${meta.label} Stand`,
+    '',
+    `Entry: ${receiptDate.format(new Date(record.entryAt))}`,
+    `Exit: ${receiptDate.format(new Date(record.checkoutAt))}`,
+    `Duration: ${formatDuration(record.durationMs)}`,
+    '',
+    `Parking charge: ${receiptMoney(record.parkingCharge)}`,
+    `Amount paid: ${receiptMoney(record.amountPaid)}`,
+    due > 0 ? `Balance due: ${receiptMoney(due)}` : 'Payment status: Paid in full',
+    '',
+    due > 0 ? 'Kindly settle the balance at your earliest convenience.' : 'Thank you for parking with us. Drive safe.',
+    `Regards, ${stand}`,
+  ].join('\n');
+}

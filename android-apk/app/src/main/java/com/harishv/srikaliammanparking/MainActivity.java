@@ -1,6 +1,7 @@
 package com.harishv.srikaliammanparking;
 
 import android.app.Activity;
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -58,8 +59,14 @@ public final class MainActivity extends Activity {
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri url = request.getUrl();
                 if ("appassets.androidplatform.net".equals(url.getHost())) return false;
-                if ("https".equals(url.getScheme()) || "http".equals(url.getScheme())) {
-                    startActivity(new Intent(Intent.ACTION_VIEW, url));
+                String scheme = url.getScheme();
+                if ("https".equals(scheme) || "http".equals(scheme) || "sms".equals(scheme)
+                        || "smsto".equals(scheme) || "tel".equals(scheme) || "whatsapp".equals(scheme)) {
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW, url));
+                    } catch (ActivityNotFoundException ignored) {
+                        // No installed app can open this link; stay in the parking app.
+                    }
                 }
                 return true;
             }
