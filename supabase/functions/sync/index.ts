@@ -26,6 +26,7 @@ function transactionPayload(payload: Record<string, unknown>, siteId: string) {
     site_id: siteId,
     serial: payload.serial,
     vehicle_number: payload.vehicleNumber,
+    customer_phone: payload.customerPhone || null,
     vehicle_type: payload.vehicleType,
     entry_at: payload.entryAt,
     checkout_at: payload.checkoutAt || null,
@@ -66,7 +67,7 @@ function membershipPayload(payload: Record<string, unknown>, siteId: string) {
 
 function clientTransaction(row: Record<string, unknown>) {
   return {
-    id: row.id, serial: row.serial, vehicleNumber: row.vehicle_number, vehicleType: row.vehicle_type,
+    id: row.id, serial: row.serial, vehicleNumber: row.vehicle_number, customerPhone: row.customer_phone || null, vehicleType: row.vehicle_type,
     entryAt: row.entry_at, checkoutAt: row.checkout_at, status: row.status, ratePerPeriod: row.rate_per_period,
     billingPeriodHours: row.billing_period_hours, membershipId: row.membership_id,
     membershipStatus: row.membership_status, membershipDiscountPercent: row.membership_discount_percent,

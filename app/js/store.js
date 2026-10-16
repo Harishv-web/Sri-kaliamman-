@@ -142,6 +142,26 @@ export function formatVehicleNumber(value, { trailingSeparator = false } = {}) {
   return trailingSeparator && [2, 4, 6].includes(compact.length) ? `${formatted} ` : formatted;
 }
 
+export function normalizeCustomerPhone(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const digits = raw.replace(/\D/g, '');
+  const localNumber = digits.length === 10
+    ? digits
+    : digits.length === 12 && digits.startsWith('91')
+      ? digits.slice(2)
+      : digits.length === 11 && digits.startsWith('0')
+        ? digits.slice(1)
+        : '';
+  if (!/^[6-9]\d{9}$/.test(localNumber)) throw new Error('Enter a valid 10-digit Indian mobile number.');
+  return `91${localNumber}`;
+}
+
+export function formatCustomerPhone(value) {
+  const normalized = normalizeCustomerPhone(value);
+  return normalized ? `+${normalized.slice(0, 2)} ${normalized.slice(2, 7)} ${normalized.slice(7)}` : '';
+}
+
 export function validateVehicleNumber(value) {
   const vehicleNumber = normalizeVehicleNumber(value);
   const compact = vehicleNumber.replace(/\s/g, '');
@@ -357,6 +377,7 @@ export class ParkingStore {
 
   async createEntry(input) {
     const vehicleNumber = validateVehicleNumber(input.vehicleNumber);
+    const customerPhone = normalizeCustomerPhone(input.customerPhone);
     const vehicleType = input.vehicleType;
     const meta = getVehicleMeta(vehicleType);
     const settings = await this.getSettings();
@@ -377,6 +398,7 @@ export class ParkingStore {
         id,
         serial,
         vehicleNumber,
+        customerPhone: customerPhone || null,
         vehicleType,
         entryAt: now,
         status: 'parked',
@@ -403,15 +425,21 @@ export class ParkingStore {
     return { ...entry, ...calculateParkingCharge(entry, exitAt), duration: formatDuration(calculateParkingCharge(entry, exitAt).durationMs) };
   }
 
-  async checkout(id, amountPaid, exitAt = new Date().toISOString()) {
+  async checkout(id, amountPaid, details = {}) {
+    const options = typeof details === 'string' ? { exitAt: details } : details;
+    const exitAt = options.exitAt || new Date().toISOString();
     const paid = Math.max(0, Math.round(asNumber(amountPaid, 0)));
     return this._transaction(['active', 'transactions', 'queue'], 'readwrite', async (transaction) => {
       const activeStore = transaction.objectStore('active');
       const entry = await requestValue(activeStore.get(id));
       if (!entry) throw new Error('This vehicle has already been checked out or is unavailable.');
+      const customerPhone = options.customerPhone === undefined
+        ? entry.customerPhone || null
+        : normalizeCustomerPhone(options.customerPhone) || null;
       const charge = calculateParkingCharge(entry, exitAt);
       const transactionRecord = {
         ...entry,
+        customerPhone,
         ...charge,
         status: 'completed',
         checkoutAt: exitAt,
@@ -424,6 +452,21 @@ export class ParkingStore {
       await requestValue(activeStore.delete(id));
       await requestValue(transaction.objectStore('queue').add(this._queueItem('parking.checkout', id, transactionRecord)));
       return transactionRecord;
+    });
+  }
+
+  async updateReceiptRecipient(id, phone) {
+    const customerPhone = normalizeCustomerPhone(phone);
+    if (!customerPhone) throw new Error('Enter the customer mobile number before sending a receipt.');
+    const updatedAt = new Date().toISOString();
+    return this._transaction(['transactions', 'queue'], 'readwrite', async (transaction) => {
+      const transactions = transaction.objectStore('transactions');
+      const existing = await requestValue(transactions.get(id));
+      if (!existing || existing.status !== 'completed') throw new Error('This completed receipt is no longer available.');
+      const updated = { ...existing, customerPhone, updatedAt };
+      await requestValue(transactions.put(updated));
+      await requestValue(transaction.objectStore('queue').put(this._queueItem('parking.checkout', id, updated)));
+      return updated;
     });
   }
 
@@ -618,47 +661,3 @@ export class ParkingStore {
 }
 
 export const parkingStore = new ParkingStore();
-
-const receiptDate = new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
-const receiptMoney = (value) => `₹${Math.round(Number(value) || 0).toLocaleString('en-IN')}`;
-
-/** Returns an international Indian mobile number (91XXXXXXXXXX) or '' when invalid. */
-export function normalizePhoneNumber(value) {
-  let digits = String(value || '').replace(/\D/g, '');
-  if (digits.length === 12 && digits.startsWith('91')) digits = digits.slice(2);
-  else if (digits.length === 11 && digits.startsWith('0')) digits = digits.slice(1);
-  return /^[6-9]\d{9}$/.test(digits) ? `91${digits}` : '';
-}
-
-/** Unique per ticket because the parking serial is unique. */
-export function buildReceiptNumber(record) {
-  const d = new Date(record.checkoutAt);
-  const day = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
-  return `SKP-${day}-${record.serial}`;
-}
-
-export function buildReceiptMessage(record, settings = {}) {
-  const stand = settings.standName || DEFAULT_SETTINGS.standName;
-  const meta = getVehicleMeta(record.vehicleType);
-  const due = Number(record.dueAmount) || 0;
-  return [
-    `*${stand}*`,
-    'Digital Parking Receipt',
-    '',
-    `Receipt No: ${buildReceiptNumber(record)}`,
-    `Ticket No: ${record.serial}`,
-    `Vehicle: ${record.vehicleNumber}`,
-    `Stand: ${meta.label} Stand`,
-    '',
-    `Entry: ${receiptDate.format(new Date(record.entryAt))}`,
-    `Exit: ${receiptDate.format(new Date(record.checkoutAt))}`,
-    `Duration: ${formatDuration(record.durationMs)}`,
-    '',
-    `Parking charge: ${receiptMoney(record.parkingCharge)}`,
-    `Amount paid: ${receiptMoney(record.amountPaid)}`,
-    due > 0 ? `Balance due: ${receiptMoney(due)}` : 'Payment status: Paid in full',
-    '',
-    due > 0 ? 'Kindly settle the balance at your earliest convenience.' : 'Thank you for parking with us. Drive safe.',
-    `Regards, ${stand}`,
-  ].join('\n');
-}

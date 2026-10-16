@@ -1,14 +1,19 @@
 import {
   parkingStore,
   calculateParkingCharge,
+  formatCustomerPhone,
   formatDuration,
   formatVehicleNumber,
   getVehicleMeta,
+  normalizeCustomerPhone,
   normalizeVehicleNumber,
-  normalizePhoneNumber,
+} from './js/store.js?v=8';
+import {
   buildReceiptMessage,
-  buildReceiptNumber,
-} from './js/store.js?v=7';
+  buildSmsReceiptUrl,
+  buildWhatsAppReceiptUrl,
+  receiptPaymentStatus,
+} from './js/receipt.js?v=8';
 
 const $ = (selector, parent = document) => parent.querySelector(selector);
 const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector)];
@@ -21,7 +26,7 @@ let activeFilter = 'all';
 let activeQuery = '';
 let checkoutPreview = null;
 let receiptRecord = null;
-let receiptFromList = false;
+let receiptStandName = '';
 let toastTimer = null;
 
 function escapeHtml(value) {
@@ -271,6 +276,8 @@ async function openCheckout(id) {
     updateText('#checkout-pass-adjustment', `−${formatMoney(checkoutPreview.membershipDiscount)}`);
     const paidInput = $('#checkout-paid');
     if (paidInput) paidInput.value = checkoutPreview.parkingCharge;
+    const customerPhone = $('#checkout-customer-phone');
+    if (customerPhone) customerPhone.value = formatCustomerPhone(checkoutPreview.customerPhone);
     updateCheckoutChange();
     $('#checkout-dialog')?.showModal();
   } catch (error) {
@@ -291,6 +298,57 @@ function updateCheckoutChange() {
 function closeCheckout() {
   checkoutPreview = null;
   $('#checkout-dialog')?.close();
+}
+
+async function showReceipt(record) {
+  const settings = await parkingStore.getSettings();
+  const meta = getVehicleMeta(record.vehicleType);
+  receiptRecord = record;
+  receiptStandName = settings.standName;
+  updateText('#receipt-stand-name', receiptStandName);
+  updateText('#receipt-serial', record.serial);
+  updateText('#receipt-vehicle-icon', meta.emoji);
+  updateText('#receipt-number', record.vehicleNumber);
+  updateText('#receipt-type', meta.label);
+  updateText('#receipt-entry', formatDateTime(record.entryAt));
+  updateText('#receipt-exit', formatDateTime(record.checkoutAt));
+  updateText('#receipt-duration', formatDuration(record.durationMs));
+  updateText('#receipt-charge', formatMoney(record.parkingCharge));
+  updateText('#receipt-paid', formatMoney(record.amountPaid));
+  updateText('#receipt-due', formatMoney(record.dueAmount));
+  const status = receiptPaymentStatus(record);
+  const statusNode = $('#receipt-status');
+  if (statusNode) {
+    statusNode.textContent = status;
+    statusNode.classList.toggle('is-due', status !== 'PAID');
+  }
+  const phoneInput = $('#receipt-customer-phone');
+  if (phoneInput) phoneInput.value = formatCustomerPhone(record.customerPhone);
+  $('#receipt-dialog')?.showModal();
+}
+
+function closeReceipt() {
+  receiptRecord = null;
+  receiptStandName = '';
+  $('#receipt-dialog')?.close();
+}
+
+async function shareReceipt(channel) {
+  if (!receiptRecord) return showToast('The completed receipt is no longer available.', 'error');
+  try {
+    const phone = normalizeCustomerPhone($('#receipt-customer-phone')?.value);
+    if (!phone) throw new Error('Enter the customer mobile number before sending a receipt.');
+    if (phone !== receiptRecord.customerPhone) receiptRecord = await parkingStore.updateReceiptRecipient(receiptRecord.id, phone);
+    const message = buildReceiptMessage({ transaction: receiptRecord, standName: receiptStandName });
+    const url = channel === 'whatsapp'
+      ? buildWhatsAppReceiptUrl(phone, message)
+      : buildSmsReceiptUrl(phone, message, navigator.userAgent);
+    showToast(`Opening ${channel === 'whatsapp' ? 'WhatsApp' : 'SMS'} with the receipt ready to send.`, 'success');
+    closeReceipt();
+    window.location.assign(url);
+  } catch (error) {
+    showToast(error.message || 'The receipt could not be prepared.', 'error');
+  }
 }
 
 function showMembershipForm(membership = null) {
@@ -344,7 +402,11 @@ async function handleEntry(event) {
   const button = $('[type="submit"]', form);
   try {
     setLoading(button, true, 'Creating ticket…');
-    const record = await parkingStore.createEntry({ vehicleType: entryType(), vehicleNumber: $('#entry-vehicle-number').value });
+    const record = await parkingStore.createEntry({
+      vehicleType: entryType(),
+      vehicleNumber: $('#entry-vehicle-number').value,
+      customerPhone: $('#entry-customer-phone').value,
+    });
     $('#success-number').textContent = `${record.serial} · ${record.vehicleNumber}`;
     $('#success-copy').textContent = `${getVehicleMeta(record.vehicleType).label} entry saved at ${formatTime(record.entryAt)}.`;
     form.reset();
@@ -375,11 +437,12 @@ async function handleCheckout(event) {
       showToast('Parking duration changed. Please review the updated bill before confirming.', 'info');
       return;
     }
-    const completed = await parkingStore.checkout(checkoutPreview.id, $('#checkout-paid').value);
+    const completed = await parkingStore.checkout(checkoutPreview.id, $('#checkout-paid').value, {
+      customerPhone: $('#checkout-customer-phone').value,
+    });
     closeCheckout();
-    showToast(`Checkout completed for ${completed.vehicleNumber}.`, 'success');
     await renderAll();
-    showReceipt(completed);
+    await showReceipt(completed);
   } catch (error) {
     showToast(error.message || 'Checkout could not be completed.', 'error');
   } finally {
@@ -517,67 +580,6 @@ function formatRegistrationInput(event) {
   if (input.id === 'entry-vehicle-number') updateEntryPreview();
 }
 
-function showReceipt(record, fromList = false) {
-  receiptRecord = record;
-  receiptFromList = fromList;
-  updateText('#receipt-number', buildReceiptNumber(record));
-  updateText('#receipt-vehicle', record.vehicleNumber);
-  updateText('#receipt-charge', formatMoney(record.parkingCharge));
-  updateText('#receipt-due', formatMoney(record.dueAmount));
-  updateText('#receipt-error', '');
-  const phone = $('#receipt-phone');
-  if (phone) phone.value = '';
-  $('#receipt-picker').hidden = true;
-  $('#receipt-compose').hidden = false;
-  $('#receipt-back').hidden = !fromList;
-  const dialog = $('#receipt-dialog');
-  if (dialog && !dialog.open) dialog.showModal();
-}
-
-async function openReceiptPicker() {
-  try {
-    const records = (await parkingStore.listTransactions()).slice(0, 10);
-    const list = $('#receipt-list');
-    list.innerHTML = records.length
-      ? records.map((record) => `<button class="receipt-row" type="button" data-action="select-receipt" data-id="${escapeHtml(record.id)}"><span><b>${escapeHtml(record.vehicleNumber)}</b><small>${escapeHtml(buildReceiptNumber(record))} \u00b7 ${escapeHtml(formatDateTime(record.checkoutAt))}</small></span><span>Send</span></button>`).join('')
-      : '<div class="empty-inline">No completed tickets yet. Receipts appear here after checkout.</div>';
-    $('#receipt-compose').hidden = true;
-    $('#receipt-picker').hidden = false;
-    const dialog = $('#receipt-dialog');
-    if (dialog && !dialog.open) dialog.showModal();
-  } catch (error) {
-    showToast(error.message || 'Receipts could not be loaded.', 'error');
-  }
-}
-
-async function selectReceipt(id) {
-  const record = (await parkingStore.listTransactions()).find((item) => item.id === id);
-  if (!record) return showToast('This ticket could not be found.', 'error');
-  showReceipt(record, true);
-}
-
-async function sendReceipt(channel) {
-  if (!receiptRecord) return;
-  const phone = normalizePhoneNumber($('#receipt-phone')?.value);
-  if (!phone) {
-    updateText('#receipt-error', 'Enter a valid 10-digit Indian mobile number.');
-    $('#receipt-phone')?.focus();
-    return;
-  }
-  updateText('#receipt-error', '');
-  const message = buildReceiptMessage(receiptRecord, await parkingStore.getSettings());
-  const url = channel === 'whatsapp'
-    ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
-    : `sms:+${phone}?&body=${encodeURIComponent(message)}`;
-  const link = document.createElement('a');
-  link.href = url;
-  link.target = '_blank';
-  link.rel = 'noopener noreferrer';
-  document.body.append(link);
-  link.click();
-  link.remove();
-}
-
 function bindEvents() {
   window.addEventListener('hashchange', () => setView(location.hash.slice(1) || 'dashboard'));
   document.addEventListener('click', async (event) => {
@@ -601,11 +603,9 @@ function bindEvents() {
       if (type === 'open-checkout') return openCheckout(action.dataset.id);
       if (type === 'close-checkout') return closeCheckout();
       if (type === 'close-success') return $('#success-dialog')?.close();
-      if (type === 'open-receipts') return openReceiptPicker();
-      if (type === 'close-receipt') return $('#receipt-dialog')?.close();
-      if (type === 'select-receipt') return selectReceipt(action.dataset.id);
-      if (type === 'receipt-whatsapp') return sendReceipt('whatsapp');
-      if (type === 'receipt-sms') return sendReceipt('sms');
+      if (type === 'close-receipt') return closeReceipt();
+      if (type === 'share-receipt-whatsapp') return shareReceipt('whatsapp');
+      if (type === 'share-receipt-sms') return shareReceipt('sms');
       if (type === 'filter-vehicle') {
         activeFilter = action.dataset.type;
         setView('active');

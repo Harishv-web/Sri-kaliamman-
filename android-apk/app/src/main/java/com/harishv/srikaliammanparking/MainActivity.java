@@ -60,12 +60,11 @@ public final class MainActivity extends Activity {
                 Uri url = request.getUrl();
                 if ("appassets.androidplatform.net".equals(url.getHost())) return false;
                 String scheme = url.getScheme();
-                if ("https".equals(scheme) || "http".equals(scheme) || "sms".equals(scheme)
-                        || "smsto".equals(scheme) || "tel".equals(scheme) || "whatsapp".equals(scheme)) {
+                if ("https".equals(scheme) || "http".equals(scheme) || "sms".equals(scheme) || "smsto".equals(scheme)) {
                     try {
                         startActivity(new Intent(Intent.ACTION_VIEW, url));
                     } catch (ActivityNotFoundException ignored) {
-                        // No installed app can open this link; stay in the parking app.
+                        // A device without an SMS client can simply remain in the app.
                     }
                 }
                 return true;

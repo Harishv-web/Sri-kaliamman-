@@ -7,11 +7,11 @@ A mobile-first, offline-ready Progressive Web App for a two-wheeler and four-whe
 - 🛵 and 🚗 vehicle entry with normalized registration numbers and duplicate-active-entry prevention
 - Collision-safe `123AB` parking serials, reserved permanently on the device
 - 24-hour billing (₹15 two-wheeler / ₹70 four-wheeler by default), with configurable rates and capacities
-- Checkout bill, received amount, change, due amount, and preserved history
+- Checkout bill, received amount, change, due amount, branded digital receipts, and preserved history
 - Dashboard, current vehicles, membership passes, reporting, CSV export, and daily vehicle activity views
 - IndexedDB persistence, offline use, web manifest, service worker, and a direct Android APK build
 
-The application has no customer accounts, staff accounts, passwords, or customer PII. Vehicle registration number is the only customer-related field.
+The application has no customer accounts, staff accounts, or passwords. An optional customer mobile number can be saved with a parking ticket only to prepare its digital receipt; it is not shown in reports. When central sync is enabled, apply the included receipt-recipient migration before syncing those numbers.
 
 ## Run locally
 
@@ -59,7 +59,3 @@ android-apk/                          Native Android WebView wrapper source
 supabase/                             secure central-sync migration and Edge Functions
 tests/                                deterministic domain tests
 ```
-
-## Digital receipts
-
-After checkout the app offers a branded receipt (unique receipt number, vehicle, entry/exit time, charge, paid and due amounts) that can be sent to the customer by WhatsApp or SMS. Past tickets are available from **Digital receipts** on the Park a vehicle screen.

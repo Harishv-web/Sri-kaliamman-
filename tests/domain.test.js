@@ -2,11 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   calculateParkingCharge,
+  formatCustomerPhone,
   formatVehicleNumber,
   formatDuration,
+  normalizeCustomerPhone,
   normalizeVehicleNumber,
   validateVehicleNumber,
 } from '../app/js/store.js';
+import { buildReceiptMessage, buildSmsReceiptUrl, buildWhatsAppReceiptUrl } from '../app/js/receipt.js';
 
 test('vehicle registrations are normalised into a clear uppercase form', () => {
   assert.equal(normalizeVehicleNumber(' tn-38  ab   1234 '), 'TN 38 AB 1234');
@@ -27,6 +30,14 @@ test('invalid vehicle registration is rejected before an entry is created', () =
   assert.throws(() => validateVehicleNumber(''), /required/i);
 });
 
+test('customer mobile numbers are normalized only when they are valid Indian numbers', () => {
+  assert.equal(normalizeCustomerPhone('98765 43210'), '919876543210');
+  assert.equal(normalizeCustomerPhone('+91 98765 43210'), '919876543210');
+  assert.equal(formatCustomerPhone('919876543210'), '+91 98765 43210');
+  assert.equal(normalizeCustomerPhone(''), '');
+  assert.throws(() => normalizeCustomerPhone('12345'), /valid 10-digit/i);
+});
+
 test('parking billing charges one 24-hour block immediately and rounds later stays up', () => {
   const record = { entryAt: '2026-10-02T06:00:00.000Z', ratePerPeriod: 15, billingPeriodHours: 24 };
   assert.equal(calculateParkingCharge(record, '2026-10-02T06:01:00.000Z').parkingCharge, 15);
@@ -43,15 +54,31 @@ test('membership discount and duration formatting remain predictable', () => {
   assert.equal(formatDuration(90 * 60 * 1000), '1h 30m');
 });
 
-test('receipt helpers validate phones and build a professional message', async () => {
-  const { normalizePhoneNumber, buildReceiptNumber, buildReceiptMessage } = await import('../app/js/store.js');
-  assert.equal(normalizePhoneNumber('98765 43210'), '919876543210');
-  assert.equal(normalizePhoneNumber('+91 98765-43210'), '919876543210');
-  assert.equal(normalizePhoneNumber('12345'), '');
-  assert.equal(normalizePhoneNumber('5876543210'), '');
-  const record = { serial: '482AB', vehicleNumber: 'TN 38 AB 1234', vehicleType: 'two-wheeler', entryAt: '2026-10-04T04:00:00.000Z', checkoutAt: '2026-10-04T06:30:00.000Z', durationMs: 9000000, parkingCharge: 40, amountPaid: 30, dueAmount: 10 };
-  assert.match(buildReceiptNumber(record), /^SKP-\d{8}-482AB$/);
-  const text = buildReceiptMessage(record, { standName: 'Sri Kaliamman Parking' });
-  for (const part of ['*Sri Kaliamman Parking*', 'TN 38 AB 1234', 'Two wheeler Stand', 'Balance due: ₹10', 'Receipt No: SKP-']) assert.ok(text.includes(part), part);
-  assert.ok(buildReceiptMessage({ ...record, amountPaid: 40, dueAmount: 0 }).includes('Paid in full'));
+test('digital receipts carry a unique ticket number, parking timings, payment, and sharing URLs', () => {
+  const transaction = {
+    serial: '583YU',
+    vehicleNumber: 'TN 38 AB 1234',
+    vehicleType: 'two-wheeler',
+    entryAt: '2026-10-04T06:45:00.000Z',
+    checkoutAt: '2026-10-04T08:15:00.000Z',
+    durationMs: 90 * 60 * 1000,
+    parkingCharge: 15,
+    amountPaid: 10,
+    dueAmount: 5,
+    changeAmount: 0,
+  };
+  const message = buildReceiptMessage({ transaction, standName: 'Sri Kaliamman Parking' });
+  assert.match(message, /Receipt no\.: 583YU/);
+  assert.match(message, /TN 38 AB 1234/);
+  assert.match(message, /Parking duration: 1h 30m/);
+  assert.match(message, /Balance due: ₹5/);
+  assert.match(message, /Sri Kaliamman Parking/);
+  const whatsappUrl = buildWhatsAppReceiptUrl('919876543210', message);
+  assert.match(whatsappUrl, /^https:\/\/wa\.me\/919876543210\?text=/);
+  assert.ok(whatsappUrl.includes('%E2%82%B9'), 'WhatsApp receipt text must encode the rupee symbol.');
+  assert.equal(new URL(whatsappUrl).searchParams.get('text'), message);
+  const smsUrl = buildSmsReceiptUrl('919876543210', message);
+  assert.match(smsUrl, /^sms:919876543210\?body=/);
+  assert.ok(smsUrl.includes('%E2%82%B9'), 'SMS receipt text must encode the rupee symbol.');
+  assert.match(buildSmsReceiptUrl('919876543210', message, 'iPhone'), /^sms:919876543210&body=/);
 });
