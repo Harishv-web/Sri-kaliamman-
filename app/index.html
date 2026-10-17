@@ -9,7 +9,7 @@
     <link rel="manifest" href="../manifest.webmanifest?v=6" />
     <link rel="icon" type="image/png" href="../assets/icon-192.png" />
     <link rel="apple-touch-icon" href="../assets/icon-192.png" />
-    <link rel="stylesheet" href="./app.css?v=8" />
+    <link rel="stylesheet" href="./app.css?v=9" />
   </head>
   <body>
     <div class="app-loader" id="app-loader" aria-live="polite">
@@ -108,6 +108,10 @@
             <div class="section-heading"><div><p class="eyebrow">Live queue</p><h2>Recently parked</h2></div><button class="text-button" type="button" data-go="active">All active vehicles <span>→</span></button></div>
             <div class="list-table" id="dashboard-active-list"><div class="empty-inline">Loading active parking…</div></div>
           </article>
+          <article class="surface recent-card notification-card">
+            <div class="section-heading"><div><p class="eyebrow">Operational updates</p><h2>Entry &amp; exit activity</h2></div><span class="local-note"><i></i> Recorded locally</span></div>
+            <div class="operational-notices" id="dashboard-notifications"><div class="empty-inline">Loading operational updates…</div></div>
+          </article>
         </section>
 
         <section class="view" id="view-entry" data-view="entry" aria-labelledby="entry-title">
@@ -184,8 +188,9 @@
           <div class="page-heading"><div><p class="eyebrow">App settings</p><h1 id="settings-title">Parking setup</h1><p class="page-lead">Set capacity and parking charges stored on this device.</p></div></div>
           <div class="settings-layout">
             <form class="surface settings-form" id="settings-form" novalidate>
-              <div class="settings-group"><div class="settings-group-heading"><span>🛵</span><div><h2>Two wheeler parking</h2><p>Capacity and rate for bikes and scooters.</p></div></div><div class="setting-fields"><label><span>Parking bays</span><input type="number" name="twoWheelerCapacity" min="0" step="1" required /></label><label><span>Rate per 24 hours</span><div class="money-input"><b>₹</b><input type="number" name="twoWheelerRate" min="0" step="1" required /></div></label></div></div>
-              <div class="settings-group"><div class="settings-group-heading"><span>🚗</span><div><h2>Four wheeler parking</h2><p>Capacity and rate for cars and SUVs.</p></div></div><div class="setting-fields"><label><span>Parking bays</span><input type="number" name="fourWheelerCapacity" min="0" step="1" required /></label><label><span>Rate per 24 hours</span><div class="money-input"><b>₹</b><input type="number" name="fourWheelerRate" min="0" step="1" required /></div></label></div></div>
+              <div class="settings-group"><div class="settings-group-heading"><span>🛵</span><div><h2>Two wheeler parking</h2><p>Capacity and rate for bikes and scooters.</p></div></div><div class="setting-fields"><label><span>Parking bays</span><input type="number" name="twoWheelerCapacity" min="0" step="1" required /></label><label><span>Current 24-hour rate</span><div class="money-input"><b>₹</b><input type="number" name="twoWheelerRate" min="0" step="1" required /></div></label><label><span>Pricing plan</span><select name="twoWheelerPricingMode"><option value="legacy-period">24-hour rate</option><option value="flexible">Flexible hourly / daily</option></select></label></div><div class="setting-fields pricing-fields"><label><span>Initial fee</span><div class="money-input"><b>₹</b><input type="number" name="twoWheelerInitialFee" min="0" step="1" /></div></label><label><span>First-hour rate</span><div class="money-input"><b>₹</b><input type="number" name="twoWheelerHourlyRate" min="0" step="1" /></div></label><label><span>Additional-hour rate</span><div class="money-input"><b>₹</b><input type="number" name="twoWheelerAdditionalHourRate" min="0" step="1" /></div></label><label><span>Daily rate</span><div class="money-input"><b>₹</b><input type="number" name="twoWheelerDailyRate" min="0" step="1" /></div></label><label><span>Grace minutes</span><input type="number" name="twoWheelerGraceMinutes" min="0" step="1" /></label><label><span>Maximum daily charge <small>0 = no cap</small></span><div class="money-input"><b>₹</b><input type="number" name="twoWheelerMaximumDailyCharge" min="0" step="1" /></div></label><label><span>Additional fee <small>optional</small></span><div class="money-input"><b>₹</b><input type="number" name="twoWheelerAdditionalFee" min="0" step="1" /></div></label></div></div>
+              <div class="settings-group"><div class="settings-group-heading"><span>🚗</span><div><h2>Four wheeler parking</h2><p>Capacity and rate for cars and SUVs.</p></div></div><div class="setting-fields"><label><span>Parking bays</span><input type="number" name="fourWheelerCapacity" min="0" step="1" required /></label><label><span>Current 24-hour rate</span><div class="money-input"><b>₹</b><input type="number" name="fourWheelerRate" min="0" step="1" required /></div></label><label><span>Pricing plan</span><select name="fourWheelerPricingMode"><option value="legacy-period">24-hour rate</option><option value="flexible">Flexible hourly / daily</option></select></label></div><div class="setting-fields pricing-fields"><label><span>Initial fee</span><div class="money-input"><b>₹</b><input type="number" name="fourWheelerInitialFee" min="0" step="1" /></div></label><label><span>First-hour rate</span><div class="money-input"><b>₹</b><input type="number" name="fourWheelerHourlyRate" min="0" step="1" /></div></label><label><span>Additional-hour rate</span><div class="money-input"><b>₹</b><input type="number" name="fourWheelerAdditionalHourRate" min="0" step="1" /></div></label><label><span>Daily rate</span><div class="money-input"><b>₹</b><input type="number" name="fourWheelerDailyRate" min="0" step="1" /></div></label><label><span>Grace minutes</span><input type="number" name="fourWheelerGraceMinutes" min="0" step="1" /></label><label><span>Maximum daily charge <small>0 = no cap</small></span><div class="money-input"><b>₹</b><input type="number" name="fourWheelerMaximumDailyCharge" min="0" step="1" /></div></label><label><span>Additional fee <small>optional</small></span><div class="money-input"><b>₹</b><input type="number" name="fourWheelerAdditionalFee" min="0" step="1" /></div></label></div></div>
+              <div class="settings-group"><div class="settings-group-heading"><span>↗</span><div><h2>Exit and payment policy</h2><p>Control whether a vehicle may exit with a recorded balance due.</p></div></div><label class="switch-row"><input type="checkbox" name="allowExitWithDue" /><span class="switch-control"></span><span><strong>Allow exit with outstanding due</strong><small>When off, checkout requires payment in full.</small></span></label></div>
               <div class="settings-group settings-group-last"><div class="settings-group-heading"><span>◇</span><div><h2>Membership</h2><p>Default monthly-pass amount.</p></div></div><div class="setting-fields single-setting"><label><span>Monthly pass amount</span><div class="money-input"><b>₹</b><input type="number" name="monthlyMembershipAmount" min="0" step="1" required /></div></label></div></div>
               <div class="settings-save-row"><span class="local-note"><i></i> Settings save locally</span><button class="button button-primary" type="submit">Save parking setup</button></div>
             </form>
@@ -220,19 +225,23 @@
         <button class="dialog-close" type="button" data-action="close-checkout" aria-label="Close checkout">×</button>
         <div class="dialog-top"><span class="dialog-vehicle" id="checkout-vehicle-icon">🛵</span><div><p class="eyebrow">Complete parking</p><h2 id="checkout-title">Checkout vehicle</h2></div></div>
         <div class="checkout-ticket" id="checkout-ticket"><div class="checkout-ticket-top"><span id="checkout-serial">Ticket —</span><strong id="checkout-number">—</strong></div><div class="checkout-ticket-meta"><span><small>Parked for</small><b id="checkout-duration">—</b></span><span><small>Entry</small><b id="checkout-entry-time">—</b></span></div></div>
-        <div class="checkout-amounts"><div><span>Parking charge</span><strong id="checkout-charge">₹0</strong></div><div class="pass-adjustment" id="checkout-pass-row" hidden><span>Membership benefit</span><strong id="checkout-pass-adjustment">₹0</strong></div><div class="checkout-total"><span>Amount due</span><strong id="checkout-due">₹0</strong></div></div>
+        <div class="checkout-amounts"><div><span>Parking charge</span><strong id="checkout-charge">₹0</strong></div><div class="price-breakdown" id="checkout-price-breakdown"></div><div class="pass-adjustment" id="checkout-pass-row" hidden><span>Membership benefit</span><strong id="checkout-pass-adjustment">₹0</strong></div><div class="checkout-total"><span>Final amount due</span><strong id="checkout-due">₹0</strong></div></div>
         <label class="field-label" for="checkout-paid">Amount received</label><div class="checkout-paid-input"><span>₹</span><input id="checkout-paid" name="amountPaid" type="number" min="0" step="1" inputmode="decimal" required /><button class="fill-amount" type="button" id="fill-due-amount">Use due amount</button></div>
         <div class="change-row" id="checkout-change-row" hidden><span>Return change</span><strong id="checkout-change">₹0</strong></div>
         <label class="field-label receipt-contact-label" for="checkout-customer-phone">Customer WhatsApp / SMS number <span>optional</span></label>
         <input class="form-input customer-phone-input" id="checkout-customer-phone" name="customerPhone" type="tel" inputmode="tel" autocomplete="tel" maxlength="18" placeholder="+91 98765 43210" aria-describedby="checkout-phone-help" />
         <p class="field-help checkout-phone-help" id="checkout-phone-help">Add or update it now to send the completed digital receipt.</p>
-        <p class="checkout-note"><i></i> Confirming closes this parking ticket and saves the payment.</p>
+        <p class="checkout-note"><i></i> <span id="checkout-policy-note">Confirming closes this parking ticket and saves the payment.</span></p>
         <button type="submit" class="button button-primary button-block button-large" id="confirm-checkout"><span>✓</span> Confirm checkout</button>
       </form>
     </dialog>
 
     <dialog class="success-dialog" id="success-dialog" aria-labelledby="success-title">
-      <div class="success-sheet"><div class="success-burst">✓</div><p class="eyebrow">Parking ticket created</p><h2 id="success-title">Vehicle is parked</h2><p class="success-number" id="success-number">—</p><p class="success-copy" id="success-copy">The parking entry has been saved on this device.</p><div class="success-actions"><button class="button button-quiet" type="button" data-action="close-success">Close</button><button class="button button-primary" type="button" data-go="entry" data-action="close-success">＋ Park another vehicle</button></div></div>
+      <div class="success-sheet"><div class="success-burst">✓</div><p class="eyebrow">Parking ticket created</p><h2 id="success-title">Vehicle is parked</h2><p class="success-number" id="success-number">—</p><p class="success-copy" id="success-copy">The parking entry has been saved on this device.</p><div class="success-actions"><button class="button button-quiet" type="button" data-action="show-entry-ticket">▣ View / print ticket</button><button class="button button-quiet" type="button" data-action="close-success">Close</button><button class="button button-primary" type="button" data-go="entry" data-action="close-success">＋ Park another vehicle</button></div></div>
+    </dialog>
+
+    <dialog class="success-dialog ticket-dialog" id="ticket-dialog" aria-labelledby="entry-ticket-title">
+      <div class="dialog-sheet entry-ticket-sheet"><button class="dialog-close" type="button" data-action="close-ticket" aria-label="Close parking ticket">×</button><article class="entry-ticket-paper" id="entry-ticket-paper"><p class="eyebrow">Parking entry ticket</p><h2 id="entry-ticket-title" class="data-stand-name">Sri Kaliamman Parking</h2><div class="entry-ticket-number" id="entry-ticket-serial">—</div><dl><div><dt>Vehicle</dt><dd id="entry-ticket-number">—</dd></div><div><dt>Category</dt><dd id="entry-ticket-type">—</dd></div><div><dt>Entry time</dt><dd id="entry-ticket-time">—</dd></div><div><dt>Applicable rate</dt><dd id="entry-ticket-rate">—</dd></div></dl><p>Keep this ticket for a quick, accurate exit lookup.</p></article><div class="success-actions no-print"><button class="button button-quiet" type="button" data-action="close-ticket">Close</button><button class="button button-primary" type="button" data-action="print-entry-ticket">🖨 Print ticket</button></div></div>
     </dialog>
 
     <dialog class="receipt-dialog" id="receipt-dialog" aria-labelledby="receipt-title">
@@ -255,6 +264,6 @@
 
     <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
     <script src="./sync-config.js"></script>
-    <script type="module" src="./app.js?v=8"></script>
+    <script type="module" src="./app.js?v=9"></script>
   </body>
 </html>

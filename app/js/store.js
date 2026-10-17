@@ -19,14 +19,35 @@ export const DEFAULT_SETTINGS = Object.freeze({
   fourWheelerCapacity: 20,
   billingPeriodHours: 24,
   billingRule: 'ceil-period',
+  // Existing sites keep the simple 24-hour rate until an administrator opts
+  // into flexible billing for that vehicle type.
+  twoWheelerPricingMode: 'legacy-period',
+  fourWheelerPricingMode: 'legacy-period',
+  twoWheelerInitialFee: 0,
+  fourWheelerInitialFee: 0,
+  twoWheelerHourlyRate: 0,
+  fourWheelerHourlyRate: 0,
+  twoWheelerAdditionalHourRate: 0,
+  fourWheelerAdditionalHourRate: 0,
+  twoWheelerDailyRate: 15,
+  fourWheelerDailyRate: 70,
+  twoWheelerGraceMinutes: 0,
+  fourWheelerGraceMinutes: 0,
+  twoWheelerMaximumDailyCharge: 0,
+  fourWheelerMaximumDailyCharge: 0,
+  twoWheelerAdditionalFee: 0,
+  fourWheelerAdditionalFee: 0,
+  // Kept true to preserve the app's established partial-payment workflow.
+  // An administrator can require payment in full before exit instead.
+  allowExitWithDue: true,
   monthlyMembershipAmount: 0,
   membershipDiscountPercent: 0,
   updatedAt: null,
 });
 
 const TYPE_META = Object.freeze({
-  'two-wheeler': { label: 'Two wheeler', emoji: '🛵', rateKey: 'twoWheelerRate', capacityKey: 'twoWheelerCapacity' },
-  'four-wheeler': { label: 'Four wheeler', emoji: '🚗', rateKey: 'fourWheelerRate', capacityKey: 'fourWheelerCapacity' },
+  'two-wheeler': { label: 'Two wheeler', emoji: '🛵', rateKey: 'twoWheelerRate', capacityKey: 'twoWheelerCapacity', prefix: 'twoWheeler' },
+  'four-wheeler': { label: 'Four wheeler', emoji: '🚗', rateKey: 'fourWheelerRate', capacityKey: 'fourWheelerCapacity', prefix: 'fourWheeler' },
 });
 
 function requestValue(request) {
@@ -110,6 +131,25 @@ function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function operationalNotice(kind, record, createdAt = new Date().toISOString()) {
+  const isExit = kind === 'exit';
+  const due = money(record.dueAmount);
+  return {
+    id: `${kind}:${record.id}`,
+    kind,
+    createdAt,
+    serial: record.serial,
+    vehicleNumber: record.vehicleNumber,
+    vehicleType: record.vehicleType,
+    title: isExit ? (due ? 'Exit recorded · balance due' : 'Exit and payment recorded') : 'Vehicle entry recorded',
+    detail: isExit
+      ? `${record.vehicleNumber} exited. ${due ? `Outstanding balance ₹${due}.` : 'Payment is complete.'}`
+      : `${record.vehicleNumber} is parked. Ticket ${record.serial} is ready.`,
+    channel: 'in-app',
+    deliveryStatus: 'recorded',
+  };
+}
+
 function sortNewest(records, property) {
   return records.sort((left, right) => new Date(right[property]).getTime() - new Date(left[property]).getTime());
 }
@@ -179,14 +219,77 @@ export function getVehicleMeta(vehicleType) {
   return meta;
 }
 
+function money(value) {
+  return Math.max(0, Math.round(asNumber(value, 0)));
+}
+
+function pricingSnapshot(settings, vehicleType) {
+  const meta = getVehicleMeta(vehicleType);
+  const prefix = meta.prefix;
+  return {
+    pricingMode: settings[`${prefix}PricingMode`] === 'flexible' ? 'flexible' : 'legacy-period',
+    initialFee: money(settings[`${prefix}InitialFee`]),
+    hourlyRate: money(settings[`${prefix}HourlyRate`]),
+    additionalHourRate: money(settings[`${prefix}AdditionalHourRate`]),
+    dailyRate: money(settings[`${prefix}DailyRate`] ?? settings[meta.rateKey]),
+    graceMinutes: Math.max(0, Math.round(asNumber(settings[`${prefix}GraceMinutes`], 0))),
+    maximumDailyCharge: money(settings[`${prefix}MaximumDailyCharge`]),
+    additionalFee: money(settings[`${prefix}AdditionalFee`]),
+  };
+}
+
+function cappedDaily(value, cap) {
+  return cap > 0 ? Math.min(value, cap) : value;
+}
+
+function flexibleCharge(record, elapsedMs) {
+  const minutes = Math.max(0, Math.ceil(elapsedMs / 60000));
+  const graceMinutes = Math.max(0, Math.round(asNumber(record.graceMinutes, 0)));
+  const chargeableMinutes = Math.max(0, minutes - graceMinutes);
+  const initialFee = money(record.initialFee);
+  const hourlyRate = money(record.hourlyRate);
+  const additionalHourRate = money(record.additionalHourRate ?? record.hourlyRate);
+  const dailyRate = money(record.dailyRate || record.ratePerPeriod);
+  const maximumDailyCharge = money(record.maximumDailyCharge);
+  const additionalFee = money(record.additionalFee);
+  const fullDays = Math.floor(chargeableMinutes / 1440);
+  const remainingMinutes = chargeableMinutes % 1440;
+  const dailyCharge = fullDays * cappedDaily(dailyRate, maximumDailyCharge);
+  const billedHours = remainingMinutes ? Math.ceil(remainingMinutes / 60) : 0;
+  const partialBase = billedHours
+    ? initialFee + hourlyRate + Math.max(0, billedHours - 1) * additionalHourRate
+    : 0;
+  const partialCharge = cappedDaily(partialBase, maximumDailyCharge);
+  const parkingBase = dailyCharge + partialCharge + (chargeableMinutes ? additionalFee : 0);
+  const lines = [];
+  if (graceMinutes) lines.push({ label: `Grace period (${graceMinutes} min)`, amount: 0 });
+  if (fullDays) lines.push({ label: `${fullDays} daily rate${fullDays === 1 ? '' : 's'}`, amount: dailyCharge });
+  if (billedHours) {
+    if (initialFee) lines.push({ label: 'Initial parking fee', amount: initialFee });
+    if (hourlyRate) lines.push({ label: 'First-hour rate', amount: hourlyRate });
+    if (billedHours > 1 && additionalHourRate) lines.push({ label: `${billedHours - 1} additional hour${billedHours === 2 ? '' : 's'}`, amount: (billedHours - 1) * additionalHourRate });
+    if (maximumDailyCharge && partialBase > maximumDailyCharge) lines.push({ label: 'Maximum daily charge applied', amount: -(partialBase - maximumDailyCharge) });
+  }
+  if (additionalFee) lines.push({ label: 'Additional fee', amount: additionalFee });
+  if (!chargeableMinutes) lines.push({ label: 'Within grace period', amount: 0 });
+  return { baseCharge: parkingBase, periods: Math.max(1, fullDays + (remainingMinutes ? 1 : 0)), priceBreakdown: lines };
+}
+
 export function calculateParkingCharge(record, exitAt = new Date().toISOString()) {
   const entryMs = new Date(record.entryAt).getTime();
   const exitMs = new Date(exitAt).getTime();
   if (!Number.isFinite(entryMs) || !Number.isFinite(exitMs)) throw new Error('Parking time is not valid.');
-  const periodHours = Math.max(1, asNumber(record.billingPeriodHours, 24));
   const elapsedMs = Math.max(0, exitMs - entryMs);
-  const periods = Math.max(1, Math.ceil(elapsedMs / (periodHours * 60 * 60 * 1000)));
-  const baseCharge = Math.round(periods * Math.max(0, asNumber(record.ratePerPeriod, 0)));
+  const periodHours = Math.max(1, asNumber(record.billingPeriodHours, 24));
+  const legacyPeriods = Math.max(1, Math.ceil(elapsedMs / (periodHours * 60 * 60 * 1000)));
+  const flexible = record.pricingMode === 'flexible'
+    ? flexibleCharge(record, elapsedMs)
+    : {
+      periods: legacyPeriods,
+      baseCharge: Math.round(legacyPeriods * Math.max(0, asNumber(record.ratePerPeriod, 0))),
+      priceBreakdown: [{ label: `${legacyPeriods} × ${periodHours}-hour parking period${legacyPeriods === 1 ? '' : 's'}`, amount: Math.round(legacyPeriods * Math.max(0, asNumber(record.ratePerPeriod, 0))) }],
+    };
+  const { periods, baseCharge, priceBreakdown } = flexible;
   const discountPercent = Math.max(0, Math.min(100, asNumber(record.membershipDiscountPercent, 0)));
   const discount = Math.round((baseCharge * discountPercent) / 100);
   return {
@@ -196,6 +299,7 @@ export function calculateParkingCharge(record, exitAt = new Date().toISOString()
     baseCharge,
     membershipDiscount: discount,
     parkingCharge: Math.max(0, baseCharge - discount),
+    priceBreakdown,
   };
 }
 
@@ -272,6 +376,9 @@ export class ParkingStore {
 
   async saveSettings(input) {
     const current = await this.getSettings();
+    const moneySetting = (key) => money(input[key] ?? current[key]);
+    const minuteSetting = (key) => Math.max(0, Math.round(asNumber(input[key] ?? current[key], current[key])));
+    const pricingMode = (key) => input[key] === 'flexible' ? 'flexible' : 'legacy-period';
     const next = {
       ...current,
       standName: String(input.standName || current.standName).trim() || current.standName,
@@ -282,6 +389,23 @@ export class ParkingStore {
       billingPeriodHours: Math.max(1, Math.round(asNumber(input.billingPeriodHours, current.billingPeriodHours))),
       monthlyMembershipAmount: Math.max(0, Math.round(asNumber(input.monthlyMembershipAmount, current.monthlyMembershipAmount))),
       membershipDiscountPercent: Math.max(0, Math.min(100, Math.round(asNumber(input.membershipDiscountPercent, current.membershipDiscountPercent)))),
+      twoWheelerPricingMode: pricingMode('twoWheelerPricingMode'),
+      fourWheelerPricingMode: pricingMode('fourWheelerPricingMode'),
+      twoWheelerInitialFee: moneySetting('twoWheelerInitialFee'),
+      fourWheelerInitialFee: moneySetting('fourWheelerInitialFee'),
+      twoWheelerHourlyRate: moneySetting('twoWheelerHourlyRate'),
+      fourWheelerHourlyRate: moneySetting('fourWheelerHourlyRate'),
+      twoWheelerAdditionalHourRate: moneySetting('twoWheelerAdditionalHourRate'),
+      fourWheelerAdditionalHourRate: moneySetting('fourWheelerAdditionalHourRate'),
+      twoWheelerDailyRate: moneySetting('twoWheelerDailyRate'),
+      fourWheelerDailyRate: moneySetting('fourWheelerDailyRate'),
+      twoWheelerGraceMinutes: minuteSetting('twoWheelerGraceMinutes'),
+      fourWheelerGraceMinutes: minuteSetting('fourWheelerGraceMinutes'),
+      twoWheelerMaximumDailyCharge: moneySetting('twoWheelerMaximumDailyCharge'),
+      fourWheelerMaximumDailyCharge: moneySetting('fourWheelerMaximumDailyCharge'),
+      twoWheelerAdditionalFee: moneySetting('twoWheelerAdditionalFee'),
+      fourWheelerAdditionalFee: moneySetting('fourWheelerAdditionalFee'),
+      allowExitWithDue: input.allowExitWithDue === 'on',
       updatedAt: new Date().toISOString(),
     };
     await this._transaction(['settings', 'queue'], 'readwrite', async (transaction) => {
@@ -317,6 +441,15 @@ export class ParkingStore {
   async listTransactions(filters = {}) {
     const all = await this._getAll('transactions');
     return this._filterTransactions(all, filters);
+  }
+
+  async listOperationalNotices(limit = 6) {
+    const meta = await this._getAll('meta');
+    return meta
+      .filter((item) => String(item.key || '').startsWith('operational-notice:'))
+      .map((item) => item.value)
+      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+      .slice(0, limit);
   }
 
   _filterTransactions(all, filters) {
@@ -388,7 +521,8 @@ export class ParkingStore {
     const capacity = asNumber(settings[meta.capacityKey]);
     if (capacity > 0 && active.length >= capacity) throw new Error(`${meta.label} capacity is full. Update capacity in Settings if needed.`);
     const ratePerPeriod = asNumber(settings[meta.rateKey]);
-    const entry = await this._transaction(['active', 'serials', 'queue'], 'readwrite', async (transaction) => {
+    const pricing = pricingSnapshot(settings, vehicleType);
+    const entry = await this._transaction(['active', 'serials', 'queue', 'meta'], 'readwrite', async (transaction) => {
       const activeStore = transaction.objectStore('active');
       const existing = await requestValue(activeStore.index('vehicleNumber').get(vehicleNumber));
       if (existing) throw new Error(`Vehicle ${vehicleNumber} is already marked as parked.`);
@@ -404,6 +538,7 @@ export class ParkingStore {
         status: 'parked',
         ratePerPeriod,
         billingPeriodHours: asNumber(settings.billingPeriodHours, 24),
+        ...pricing,
         membershipId: membership?.id || null,
         membershipStatus: membership ? 'active' : 'not-active',
         membershipDiscountPercent: membership ? asNumber(settings.membershipDiscountPercent, 0) : 0,
@@ -414,6 +549,8 @@ export class ParkingStore {
       await requestValue(transaction.objectStore('serials').add({ serial, transactionId: id, reservedAt: now }));
       await requestValue(activeStore.add(record));
       await requestValue(transaction.objectStore('queue').add(this._queueItem('parking.entry', id, record)));
+      const notice = operationalNotice('entry', record, now);
+      await requestValue(transaction.objectStore('meta').put({ key: `operational-notice:${notice.id}`, value: notice, updatedAt: now }));
       return record;
     });
     return entry;
@@ -422,14 +559,16 @@ export class ParkingStore {
   async getCheckoutPreview(id, exitAt = new Date().toISOString()) {
     const entry = await this._get('active', id);
     if (!entry) throw new Error('This vehicle is no longer in active parking.');
-    return { ...entry, ...calculateParkingCharge(entry, exitAt), duration: formatDuration(calculateParkingCharge(entry, exitAt).durationMs) };
+    const charge = calculateParkingCharge(entry, exitAt);
+    const settings = await this.getSettings();
+    return { ...entry, ...charge, duration: formatDuration(charge.durationMs), allowExitWithDue: settings.allowExitWithDue !== false };
   }
 
   async checkout(id, amountPaid, details = {}) {
     const options = typeof details === 'string' ? { exitAt: details } : details;
     const exitAt = options.exitAt || new Date().toISOString();
     const paid = Math.max(0, Math.round(asNumber(amountPaid, 0)));
-    return this._transaction(['active', 'transactions', 'queue'], 'readwrite', async (transaction) => {
+    return this._transaction(['active', 'transactions', 'queue', 'settings', 'meta'], 'readwrite', async (transaction) => {
       const activeStore = transaction.objectStore('active');
       const entry = await requestValue(activeStore.get(id));
       if (!entry) throw new Error('This vehicle has already been checked out or is unavailable.');
@@ -437,20 +576,29 @@ export class ParkingStore {
         ? entry.customerPhone || null
         : normalizeCustomerPhone(options.customerPhone) || null;
       const charge = calculateParkingCharge(entry, exitAt);
+      const settings = { ...DEFAULT_SETTINGS, ...(await requestValue(transaction.objectStore('settings').get(SETTINGS_ID))) };
+      const dueAmount = Math.max(0, charge.parkingCharge - paid);
+      if (dueAmount > 0 && settings.allowExitWithDue === false) {
+        throw new Error(`Full payment is required before exit. Outstanding amount: ₹${dueAmount}.`);
+      }
       const transactionRecord = {
         ...entry,
         customerPhone,
         ...charge,
         status: 'completed',
+        exitStatus: 'exited',
+        paymentStatus: dueAmount > 0 ? (paid > 0 ? 'partially-paid' : 'unpaid') : 'paid',
         checkoutAt: exitAt,
         amountPaid: paid,
-        dueAmount: Math.max(0, charge.parkingCharge - paid),
+        dueAmount,
         changeAmount: Math.max(0, paid - charge.parkingCharge),
         updatedAt: exitAt,
       };
       await requestValue(transaction.objectStore('transactions').add(transactionRecord));
       await requestValue(activeStore.delete(id));
       await requestValue(transaction.objectStore('queue').add(this._queueItem('parking.checkout', id, transactionRecord)));
+      const notice = operationalNotice('exit', transactionRecord, exitAt);
+      await requestValue(transaction.objectStore('meta').put({ key: `operational-notice:${notice.id}`, value: notice, updatedAt: exitAt }));
       return transactionRecord;
     });
   }

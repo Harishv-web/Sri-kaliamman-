@@ -54,6 +54,38 @@ test('membership discount and duration formatting remain predictable', () => {
   assert.equal(formatDuration(90 * 60 * 1000), '1h 30m');
 });
 
+test('flexible pricing applies grace, hourly increments, caps, extras, and membership discount transparently', () => {
+  const record = {
+    entryAt: '2026-10-02T06:00:00.000Z',
+    pricingMode: 'flexible',
+    graceMinutes: 10,
+    initialFee: 5,
+    hourlyRate: 10,
+    additionalHourRate: 8,
+    dailyRate: 80,
+    maximumDailyCharge: 30,
+    additionalFee: 4,
+    membershipDiscountPercent: 10,
+  };
+  const result = calculateParkingCharge(record, '2026-10-02T08:11:00.000Z');
+  // 121 chargeable minutes: initial ₹5 + first hour ₹10 + 2 extra hours ₹16,
+  // capped at ₹30, plus ₹4 additional fee, then 10% membership benefit.
+  assert.equal(result.baseCharge, 34);
+  assert.equal(result.membershipDiscount, 3);
+  assert.equal(result.parkingCharge, 31);
+  assert.ok(result.priceBreakdown.some((line) => /Maximum daily charge/.test(line.label)));
+  assert.ok(result.priceBreakdown.some((line) => line.label === 'Additional fee'));
+});
+
+test('flexible parking within grace period does not add a charge or optional fee', () => {
+  const result = calculateParkingCharge({
+    entryAt: '2026-10-02T06:00:00.000Z', pricingMode: 'flexible', graceMinutes: 15,
+    initialFee: 10, hourlyRate: 10, dailyRate: 100, additionalFee: 5,
+  }, '2026-10-02T06:15:00.000Z');
+  assert.equal(result.parkingCharge, 0);
+  assert.match(result.priceBreakdown[0].label, /grace period/i);
+});
+
 test('digital receipts carry a unique ticket number, parking timings, payment, and sharing URLs', () => {
   const transaction = {
     serial: '583YU',

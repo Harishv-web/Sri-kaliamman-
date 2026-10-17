@@ -7,13 +7,13 @@ import {
   getVehicleMeta,
   normalizeCustomerPhone,
   normalizeVehicleNumber,
-} from './js/store.js?v=8';
+} from './js/store.js?v=9';
 import {
   buildReceiptMessage,
   buildSmsReceiptUrl,
   buildWhatsAppReceiptUrl,
   receiptPaymentStatus,
-} from './js/receipt.js?v=8';
+} from './js/receipt.js?v=9';
 
 const $ = (selector, parent = document) => parent.querySelector(selector);
 const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector)];
@@ -27,6 +27,7 @@ let activeQuery = '';
 let checkoutPreview = null;
 let receiptRecord = null;
 let receiptStandName = '';
+let entryTicketRecord = null;
 let toastTimer = null;
 
 function escapeHtml(value) {
@@ -47,6 +48,18 @@ function formatDateTime(value) {
 
 function formatTime(value) {
   return timeFormat.format(new Date(value));
+}
+
+function paymentStatus(record) {
+  const due = Number(record?.dueAmount || 0);
+  const paid = Number(record?.amountPaid || 0);
+  if (due > 0) return paid > 0 ? 'PARTIALLY PAID' : 'UNPAID';
+  return 'PAID';
+}
+
+function renderPriceBreakdown(lines = []) {
+  if (!lines.length) return '';
+  return lines.map((line) => `<div><span>${escapeHtml(line.label)}</span><strong>${line.amount < 0 ? '−' : ''}${formatMoney(Math.abs(line.amount))}</strong></div>`).join('');
 }
 
 function localDateInput(value = new Date()) {
@@ -116,19 +129,20 @@ function renderActiveRows(records, compact = false) {
     const estimate = calculateParkingCharge(record);
     return `<article class="parking-row ${compact ? 'parking-row-compact' : ''}">
       <div class="parking-vehicle-icon ${record.vehicleType}">${meta.emoji}</div>
-      <div class="parking-main"><div class="parking-identity"><span class="serial">${escapeHtml(record.serial)}</span>${record.membershipId ? '<span class="member-tag">◇ Pass</span>' : ''}</div><strong>${escapeHtml(record.vehicleNumber)}</strong><small>${meta.label} · entered ${escapeHtml(formatDateTime(record.entryAt))}</small></div>
+      <div class="parking-main"><div class="parking-identity"><span class="serial">${escapeHtml(record.serial)}</span><span class="member-tag parked-status">● PARKED</span>${record.membershipId ? '<span class="member-tag">◇ Pass</span>' : ''}</div><strong>${escapeHtml(record.vehicleNumber)}</strong><small>${meta.label} · entered ${escapeHtml(formatDateTime(record.entryAt))}</small></div>
       <div class="parking-time"><small>Parked for</small><b>${escapeHtml(formatDuration(estimate.durationMs))}</b></div>
-      <div class="parking-price"><small>Current charge</small><b>${formatMoney(estimate.parkingCharge)}</b></div>
+      <div class="parking-price"><small>Estimated charge</small><b>${formatMoney(estimate.parkingCharge)}</b></div>
       <button class="button button-dark checkout-button" type="button" data-action="open-checkout" data-id="${escapeHtml(record.id)}">Exit <span>→</span></button>
     </article>`;
   }).join('');
 }
 
 async function renderDashboard() {
-  const [dashboard, twoStatus, fourStatus] = await Promise.all([
+  const [dashboard, twoStatus, fourStatus, notices] = await Promise.all([
     parkingStore.getDashboard(),
     parkingStore.getStatus('two-wheeler'),
     parkingStore.getStatus('four-wheeler'),
+    parkingStore.listOperationalNotices(),
   ]);
   updateText('#metric-active', dashboard.activeCount);
   updateText('#metric-active-note', `🛵 ${dashboard.activeTwo}  ·  🚗 ${dashboard.activeFour}`);
@@ -154,6 +168,10 @@ async function renderDashboard() {
   const recent = dashboard.active.slice(0, 5);
   const target = $('#dashboard-active-list');
   if (target) target.innerHTML = renderActiveRows(recent, true);
+  const notificationTarget = $('#dashboard-notifications');
+  if (notificationTarget) notificationTarget.innerHTML = notices.length
+    ? notices.map((notice) => `<article class="operational-notice"><span>${notice.kind === 'exit' ? '↗' : '✓'}</span><div><strong>${escapeHtml(notice.title)}</strong><p>${escapeHtml(notice.detail)}</p><small>${escapeHtml(formatDateTime(notice.createdAt))} · recorded on this device</small></div></article>`).join('')
+    : '<div class="empty-inline"><span>⌁</span><p>Entry and exit updates will be recorded here.</p></div>';
 }
 
 function renderStandRow(prefix, status) {
@@ -218,7 +236,7 @@ async function renderReports() {
   }
   list.innerHTML = `<div class="transaction-head"><span>Ticket</span><span>Vehicle</span><span>Completed</span><span>Charge</span><span>Paid / Due</span></div>${report.transactions.map((record) => {
     const meta = getVehicleMeta(record.vehicleType);
-    return `<article class="transaction-row"><span><b>${escapeHtml(record.serial)}</b><small>${meta.emoji} ${meta.label}</small></span><span><b>${escapeHtml(record.vehicleNumber)}</b><small>In ${escapeHtml(formatDateTime(record.entryAt))}</small></span><span>${escapeHtml(formatDateTime(record.checkoutAt))}<small>${escapeHtml(formatDuration(record.durationMs))}</small></span><span>${formatMoney(record.parkingCharge)}</span><span><b>${formatMoney(record.amountPaid)}</b><small class="${record.dueAmount ? 'due-text' : 'paid-text'}">${record.dueAmount ? `Due ${formatMoney(record.dueAmount)}` : 'Paid'}</small></span></article>`;
+    return `<article class="transaction-row"><span><b>${escapeHtml(record.serial)}</b><small>${meta.emoji} ${meta.label} · EXITED</small></span><span><b>${escapeHtml(record.vehicleNumber)}</b><small>In ${escapeHtml(formatDateTime(record.entryAt))}</small></span><span>${escapeHtml(formatDateTime(record.checkoutAt))}<small>${escapeHtml(formatDuration(record.durationMs))}</small></span><span>${formatMoney(record.parkingCharge)}</span><span><b>${formatMoney(record.amountPaid)}</b><small class="${record.dueAmount ? 'due-text' : 'paid-text'}">${record.dueAmount ? `Due ${formatMoney(record.dueAmount)} · ${paymentStatus(record)}` : 'PAID'}</small></span></article>`;
   }).join('')}`;
 }
 
@@ -228,7 +246,10 @@ async function renderSettings() {
   if (!form) return;
   for (const [key, value] of Object.entries(settings)) {
     const input = $(`[name="${key}"]`, form);
-    if (input) input.value = value;
+    if (input) {
+      if (input.type === 'checkbox') input.checked = Boolean(value);
+      else input.value = value;
+    }
   }
   $$('.data-stand-name').forEach((node) => { node.textContent = settings.standName; });
   document.title = `${settings.standName} · Parking`;
@@ -271,6 +292,11 @@ async function openCheckout(id) {
     updateText('#checkout-entry-time', formatDateTime(checkoutPreview.entryAt));
     updateText('#checkout-charge', formatMoney(checkoutPreview.baseCharge));
     updateText('#checkout-due', formatMoney(checkoutPreview.parkingCharge));
+    const breakdown = $('#checkout-price-breakdown');
+    if (breakdown) breakdown.innerHTML = renderPriceBreakdown(checkoutPreview.priceBreakdown);
+    updateText('#checkout-policy-note', checkoutPreview.allowExitWithDue
+      ? 'A balance may be recorded as due under the current exit policy.'
+      : 'Full payment is required before this vehicle can exit.');
     const passRow = $('#checkout-pass-row');
     if (passRow) passRow.hidden = !checkoutPreview.membershipDiscount;
     updateText('#checkout-pass-adjustment', `−${formatMoney(checkoutPreview.membershipDiscount)}`);
@@ -413,12 +439,33 @@ async function handleEntry(event) {
     selectEntryType('two-wheeler');
     updateEntryPreview();
     await renderAll();
+    entryTicketRecord = record;
     $('#success-dialog')?.showModal();
   } catch (error) {
     showToast(error.message || 'Unable to create the parking ticket.', 'error');
   } finally {
     setLoading(button, false);
   }
+}
+
+async function showEntryTicket() {
+  if (!entryTicketRecord) return showToast('The new parking ticket is no longer available.', 'error');
+  const settings = await parkingStore.getSettings();
+  const meta = getVehicleMeta(entryTicketRecord.vehicleType);
+  updateText('#entry-ticket-stand-name', settings.standName);
+  updateText('#entry-ticket-serial', entryTicketRecord.serial);
+  updateText('#entry-ticket-number', entryTicketRecord.vehicleNumber);
+  updateText('#entry-ticket-type', `${meta.emoji} ${meta.label}`);
+  updateText('#entry-ticket-time', formatDateTime(entryTicketRecord.entryAt));
+  updateText('#entry-ticket-rate', entryTicketRecord.pricingMode === 'flexible' ? 'Flexible rate plan' : `${formatMoney(entryTicketRecord.ratePerPeriod)} / ${entryTicketRecord.billingPeriodHours} hours`);
+  $('#ticket-dialog')?.showModal();
+}
+
+function printEntryTicket() {
+  if (!entryTicketRecord) return showToast('The parking ticket is no longer available.', 'error');
+  document.body.classList.add('printing-entry-ticket');
+  window.print();
+  window.setTimeout(() => document.body.classList.remove('printing-entry-ticket'), 250);
 }
 
 async function handleCheckout(event) {
@@ -432,6 +479,8 @@ async function handleCheckout(event) {
       checkoutPreview = refreshed;
       updateText('#checkout-charge', formatMoney(refreshed.baseCharge));
       updateText('#checkout-due', formatMoney(refreshed.parkingCharge));
+      const breakdown = $('#checkout-price-breakdown');
+      if (breakdown) breakdown.innerHTML = renderPriceBreakdown(refreshed.priceBreakdown);
       $('#checkout-paid').value = refreshed.parkingCharge;
       updateCheckoutChange();
       showToast('Parking duration changed. Please review the updated bill before confirming.', 'info');
@@ -603,6 +652,9 @@ function bindEvents() {
       if (type === 'open-checkout') return openCheckout(action.dataset.id);
       if (type === 'close-checkout') return closeCheckout();
       if (type === 'close-success') return $('#success-dialog')?.close();
+      if (type === 'show-entry-ticket') return showEntryTicket();
+      if (type === 'close-ticket') return $('#ticket-dialog')?.close();
+      if (type === 'print-entry-ticket') return printEntryTicket();
       if (type === 'close-receipt') return closeReceipt();
       if (type === 'share-receipt-whatsapp') return shareReceipt('whatsapp');
       if (type === 'share-receipt-sms') return shareReceipt('sms');
