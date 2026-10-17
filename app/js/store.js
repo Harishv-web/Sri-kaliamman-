@@ -131,25 +131,6 @@ function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-function operationalNotice(kind, record, createdAt = new Date().toISOString()) {
-  const isExit = kind === 'exit';
-  const due = money(record.dueAmount);
-  return {
-    id: `${kind}:${record.id}`,
-    kind,
-    createdAt,
-    serial: record.serial,
-    vehicleNumber: record.vehicleNumber,
-    vehicleType: record.vehicleType,
-    title: isExit ? (due ? 'Exit recorded · balance due' : 'Exit and payment recorded') : 'Vehicle entry recorded',
-    detail: isExit
-      ? `${record.vehicleNumber} exited. ${due ? `Outstanding balance ₹${due}.` : 'Payment is complete.'}`
-      : `${record.vehicleNumber} is parked. Ticket ${record.serial} is ready.`,
-    channel: 'in-app',
-    deliveryStatus: 'recorded',
-  };
-}
-
 function sortNewest(records, property) {
   return records.sort((left, right) => new Date(right[property]).getTime() - new Date(left[property]).getTime());
 }
@@ -443,15 +424,6 @@ export class ParkingStore {
     return this._filterTransactions(all, filters);
   }
 
-  async listOperationalNotices(limit = 6) {
-    const meta = await this._getAll('meta');
-    return meta
-      .filter((item) => String(item.key || '').startsWith('operational-notice:'))
-      .map((item) => item.value)
-      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
-      .slice(0, limit);
-  }
-
   _filterTransactions(all, filters) {
     const from = filters.from || null;
     const to = filters.to || null;
@@ -522,7 +494,7 @@ export class ParkingStore {
     if (capacity > 0 && active.length >= capacity) throw new Error(`${meta.label} capacity is full. Update capacity in Settings if needed.`);
     const ratePerPeriod = asNumber(settings[meta.rateKey]);
     const pricing = pricingSnapshot(settings, vehicleType);
-    const entry = await this._transaction(['active', 'serials', 'queue', 'meta'], 'readwrite', async (transaction) => {
+    const entry = await this._transaction(['active', 'serials', 'queue'], 'readwrite', async (transaction) => {
       const activeStore = transaction.objectStore('active');
       const existing = await requestValue(activeStore.index('vehicleNumber').get(vehicleNumber));
       if (existing) throw new Error(`Vehicle ${vehicleNumber} is already marked as parked.`);
@@ -549,8 +521,6 @@ export class ParkingStore {
       await requestValue(transaction.objectStore('serials').add({ serial, transactionId: id, reservedAt: now }));
       await requestValue(activeStore.add(record));
       await requestValue(transaction.objectStore('queue').add(this._queueItem('parking.entry', id, record)));
-      const notice = operationalNotice('entry', record, now);
-      await requestValue(transaction.objectStore('meta').put({ key: `operational-notice:${notice.id}`, value: notice, updatedAt: now }));
       return record;
     });
     return entry;
@@ -568,7 +538,7 @@ export class ParkingStore {
     const options = typeof details === 'string' ? { exitAt: details } : details;
     const exitAt = options.exitAt || new Date().toISOString();
     const paid = Math.max(0, Math.round(asNumber(amountPaid, 0)));
-    return this._transaction(['active', 'transactions', 'queue', 'settings', 'meta'], 'readwrite', async (transaction) => {
+    return this._transaction(['active', 'transactions', 'queue', 'settings'], 'readwrite', async (transaction) => {
       const activeStore = transaction.objectStore('active');
       const entry = await requestValue(activeStore.get(id));
       if (!entry) throw new Error('This vehicle has already been checked out or is unavailable.');
@@ -597,9 +567,22 @@ export class ParkingStore {
       await requestValue(transaction.objectStore('transactions').add(transactionRecord));
       await requestValue(activeStore.delete(id));
       await requestValue(transaction.objectStore('queue').add(this._queueItem('parking.checkout', id, transactionRecord)));
-      const notice = operationalNotice('exit', transactionRecord, exitAt);
-      await requestValue(transaction.objectStore('meta').put({ key: `operational-notice:${notice.id}`, value: notice, updatedAt: exitAt }));
       return transactionRecord;
+    });
+  }
+
+  async updateEntryRecipient(id, phone) {
+    const customerPhone = normalizeCustomerPhone(phone);
+    if (!customerPhone) throw new Error('Enter the customer mobile number before sending a parking update.');
+    const updatedAt = new Date().toISOString();
+    return this._transaction(['active', 'queue'], 'readwrite', async (transaction) => {
+      const active = transaction.objectStore('active');
+      const existing = await requestValue(active.get(id));
+      if (!existing || existing.status !== 'parked') throw new Error('This active parking ticket is no longer available.');
+      const updated = { ...existing, customerPhone, updatedAt };
+      await requestValue(active.put(updated));
+      await requestValue(transaction.objectStore('queue').put(this._queueItem('parking.entry', id, updated)));
+      return updated;
     });
   }
 

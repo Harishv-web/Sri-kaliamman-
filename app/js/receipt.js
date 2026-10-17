@@ -1,4 +1,4 @@
-import { formatDuration, getVehicleMeta } from './store.js?v=9';
+import { formatDuration, getVehicleMeta } from './store.js?v=10';
 
 const currency = new Intl.NumberFormat('en-IN', {
   style: 'currency',
@@ -25,6 +25,28 @@ function formatDateTime(value) {
 
 export function receiptPaymentStatus(transaction) {
   return Number(transaction?.dueAmount || 0) > 0 ? 'BALANCE DUE' : 'PAID';
+}
+
+export function buildParkedMessage({ entry, standName }) {
+  if (!entry?.serial || !entry?.vehicleNumber || !entry?.entryAt) {
+    throw new Error('The parking entry details are not available for this notification.');
+  }
+  const vehicle = getVehicleMeta(entry.vehicleType);
+  const rate = entry.pricingMode === 'flexible'
+    ? 'Configured parking rates apply at exit.'
+    : `${formatMoney(entry.ratePerPeriod)} per ${entry.billingPeriodHours || 24} hours.`;
+  return [
+    String(standName || 'Sri Kaliamman Parking').trim() || 'Sri Kaliamman Parking',
+    'PARKING ENTRY CONFIRMED',
+    '────────────────────────',
+    `Ticket no.: ${entry.serial}`,
+    `Vehicle: ${entry.vehicleNumber} (${vehicle.label})`,
+    `Entry: ${formatDateTime(entry.entryAt)}`,
+    'Status: Parked',
+    `Rate: ${rate}`,
+    'Payment will be calculated accurately at exit.',
+    'Thank you for choosing us. Please keep this message for your records.',
+  ].join('\n');
 }
 
 export function buildReceiptMessage({ transaction, standName }) {

@@ -9,7 +9,7 @@ import {
   normalizeVehicleNumber,
   validateVehicleNumber,
 } from '../app/js/store.js';
-import { buildReceiptMessage, buildSmsReceiptUrl, buildWhatsAppReceiptUrl } from '../app/js/receipt.js';
+import { buildParkedMessage, buildReceiptMessage, buildSmsReceiptUrl, buildWhatsAppReceiptUrl } from '../app/js/receipt.js';
 
 test('vehicle registrations are normalised into a clear uppercase form', () => {
   assert.equal(normalizeVehicleNumber(' tn-38  ab   1234 '), 'TN 38 AB 1234');
@@ -113,4 +113,19 @@ test('digital receipts carry a unique ticket number, parking timings, payment, a
   assert.match(smsUrl, /^sms:919876543210\?body=/);
   assert.ok(smsUrl.includes('%E2%82%B9'), 'SMS receipt text must encode the rupee symbol.');
   assert.match(buildSmsReceiptUrl('919876543210', message, 'iPhone'), /^sms:919876543210&body=/);
+});
+
+test('parked notification has the ticket, vehicle, entry time, and does not claim delivery', () => {
+  const message = buildParkedMessage({
+    standName: 'Sri Kaliamman Parking',
+    entry: {
+      serial: '256EI', vehicleNumber: 'TN 38 AB 1234', vehicleType: 'four-wheeler',
+      entryAt: '2026-10-17T09:20:00.000Z', ratePerPeriod: 70, billingPeriodHours: 24,
+    },
+  });
+  assert.match(message, /PARKING ENTRY CONFIRMED/);
+  assert.match(message, /Ticket no\.: 256EI/);
+  assert.match(message, /TN 38 AB 1234 \(Four wheeler\)/);
+  assert.match(message, /Status: Parked/);
+  assert.doesNotMatch(message, /delivered/i);
 });

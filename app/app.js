@@ -7,13 +7,14 @@ import {
   getVehicleMeta,
   normalizeCustomerPhone,
   normalizeVehicleNumber,
-} from './js/store.js?v=9';
+} from './js/store.js?v=10';
 import {
+  buildParkedMessage,
   buildReceiptMessage,
   buildSmsReceiptUrl,
   buildWhatsAppReceiptUrl,
   receiptPaymentStatus,
-} from './js/receipt.js?v=9';
+} from './js/receipt.js?v=10';
 
 const $ = (selector, parent = document) => parent.querySelector(selector);
 const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector)];
@@ -27,7 +28,8 @@ let activeQuery = '';
 let checkoutPreview = null;
 let receiptRecord = null;
 let receiptStandName = '';
-let entryTicketRecord = null;
+let entryNotificationRecord = null;
+let entryNotificationStandName = '';
 let toastTimer = null;
 
 function escapeHtml(value) {
@@ -138,11 +140,10 @@ function renderActiveRows(records, compact = false) {
 }
 
 async function renderDashboard() {
-  const [dashboard, twoStatus, fourStatus, notices] = await Promise.all([
+  const [dashboard, twoStatus, fourStatus] = await Promise.all([
     parkingStore.getDashboard(),
     parkingStore.getStatus('two-wheeler'),
     parkingStore.getStatus('four-wheeler'),
-    parkingStore.listOperationalNotices(),
   ]);
   updateText('#metric-active', dashboard.activeCount);
   updateText('#metric-active-note', `🛵 ${dashboard.activeTwo}  ·  🚗 ${dashboard.activeFour}`);
@@ -168,10 +169,6 @@ async function renderDashboard() {
   const recent = dashboard.active.slice(0, 5);
   const target = $('#dashboard-active-list');
   if (target) target.innerHTML = renderActiveRows(recent, true);
-  const notificationTarget = $('#dashboard-notifications');
-  if (notificationTarget) notificationTarget.innerHTML = notices.length
-    ? notices.map((notice) => `<article class="operational-notice"><span>${notice.kind === 'exit' ? '↗' : '✓'}</span><div><strong>${escapeHtml(notice.title)}</strong><p>${escapeHtml(notice.detail)}</p><small>${escapeHtml(formatDateTime(notice.createdAt))} · recorded on this device</small></div></article>`).join('')
-    : '<div class="empty-inline"><span>⌁</span><p>Entry and exit updates will be recorded here.</p></div>';
 }
 
 function renderStandRow(prefix, status) {
@@ -439,7 +436,7 @@ async function handleEntry(event) {
     selectEntryType('two-wheeler');
     updateEntryPreview();
     await renderAll();
-    entryTicketRecord = record;
+    entryNotificationRecord = record;
     $('#success-dialog')?.showModal();
   } catch (error) {
     showToast(error.message || 'Unable to create the parking ticket.', 'error');
@@ -448,24 +445,45 @@ async function handleEntry(event) {
   }
 }
 
-async function showEntryTicket() {
-  if (!entryTicketRecord) return showToast('The new parking ticket is no longer available.', 'error');
+async function showParkedNotification() {
+  if (!entryNotificationRecord) return showToast('The new parking ticket is no longer available.', 'error');
   const settings = await parkingStore.getSettings();
-  const meta = getVehicleMeta(entryTicketRecord.vehicleType);
-  updateText('#entry-ticket-stand-name', settings.standName);
-  updateText('#entry-ticket-serial', entryTicketRecord.serial);
-  updateText('#entry-ticket-number', entryTicketRecord.vehicleNumber);
-  updateText('#entry-ticket-type', `${meta.emoji} ${meta.label}`);
-  updateText('#entry-ticket-time', formatDateTime(entryTicketRecord.entryAt));
-  updateText('#entry-ticket-rate', entryTicketRecord.pricingMode === 'flexible' ? 'Flexible rate plan' : `${formatMoney(entryTicketRecord.ratePerPeriod)} / ${entryTicketRecord.billingPeriodHours} hours`);
-  $('#ticket-dialog')?.showModal();
+  const meta = getVehicleMeta(entryNotificationRecord.vehicleType);
+  entryNotificationStandName = settings.standName;
+  updateText('#parked-message-stand-name', settings.standName);
+  updateText('#parked-message-serial', entryNotificationRecord.serial);
+  updateText('#parked-message-number', entryNotificationRecord.vehicleNumber);
+  updateText('#parked-message-type', `${meta.emoji} ${meta.label}`);
+  updateText('#parked-message-entry', formatDateTime(entryNotificationRecord.entryAt));
+  const phoneInput = $('#parked-message-phone');
+  if (phoneInput) phoneInput.value = formatCustomerPhone(entryNotificationRecord.customerPhone);
+  $('#parked-message-dialog')?.showModal();
 }
 
-function printEntryTicket() {
-  if (!entryTicketRecord) return showToast('The parking ticket is no longer available.', 'error');
-  document.body.classList.add('printing-entry-ticket');
-  window.print();
-  window.setTimeout(() => document.body.classList.remove('printing-entry-ticket'), 250);
+function closeParkedNotification() {
+  entryNotificationStandName = '';
+  $('#parked-message-dialog')?.close();
+}
+
+async function shareParkedNotification(channel) {
+  if (!entryNotificationRecord) return showToast('The parking entry is no longer available.', 'error');
+  try {
+    const phone = normalizeCustomerPhone($('#parked-message-phone')?.value);
+    if (!phone) throw new Error('Enter the customer mobile number before sending a parking update.');
+    if (phone !== entryNotificationRecord.customerPhone) {
+      entryNotificationRecord = await parkingStore.updateEntryRecipient(entryNotificationRecord.id, phone);
+    }
+    const message = buildParkedMessage({ entry: entryNotificationRecord, standName: entryNotificationStandName });
+    const url = channel === 'whatsapp'
+      ? buildWhatsAppReceiptUrl(phone, message)
+      : buildSmsReceiptUrl(phone, message, navigator.userAgent);
+    showToast(`Opening ${channel === 'whatsapp' ? 'WhatsApp' : 'SMS'} with the parked notification ready to send.`, 'success');
+    closeParkedNotification();
+    $('#success-dialog')?.close();
+    window.location.assign(url);
+  } catch (error) {
+    showToast(error.message || 'The parked notification could not be prepared.', 'error');
+  }
 }
 
 async function handleCheckout(event) {
@@ -652,9 +670,10 @@ function bindEvents() {
       if (type === 'open-checkout') return openCheckout(action.dataset.id);
       if (type === 'close-checkout') return closeCheckout();
       if (type === 'close-success') return $('#success-dialog')?.close();
-      if (type === 'show-entry-ticket') return showEntryTicket();
-      if (type === 'close-ticket') return $('#ticket-dialog')?.close();
-      if (type === 'print-entry-ticket') return printEntryTicket();
+      if (type === 'show-parked-notification') return showParkedNotification();
+      if (type === 'close-parked-notification') return closeParkedNotification();
+      if (type === 'share-parked-whatsapp') return shareParkedNotification('whatsapp');
+      if (type === 'share-parked-sms') return shareParkedNotification('sms');
       if (type === 'close-receipt') return closeReceipt();
       if (type === 'share-receipt-whatsapp') return shareReceipt('whatsapp');
       if (type === 'share-receipt-sms') return shareReceipt('sms');
