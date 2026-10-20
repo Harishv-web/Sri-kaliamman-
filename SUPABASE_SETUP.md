@@ -1,6 +1,6 @@
 # Central sync setup
 
-The deployed web app works entirely on one device before this setup: vehicle entry, checkout, billing, history, memberships, settings, and the app shell are stored in IndexedDB and continue offline.
+The deployed web app works entirely on one device before this setup: vehicle entry, checkout, billing, history, memberships, settings, and the app shell are stored in IndexedDB and continue offline. Once connected, every enrolled device automatically syncs entries, exits, pricing configuration, memberships, receipts, and reports with the same central database whenever it is online.
 
 Central sync is deliberately not switched on in this repository because a Supabase project and its secrets were not supplied. The files in `supabase/` are a real deployment package, not a browser-exposed database key. Follow these steps only in a Supabase project owned by the parking stand.
 
@@ -63,5 +63,8 @@ The token stays only in that browser's IndexedDB. It is neither in the public we
 - The database prevents duplicate active entries for the same vehicle at one stand and prevents serial-number collisions.
 - Sync returns the current active-parking snapshot plus centralized settings, memberships, and transaction history, so a newly enrolled device adopts the same parking data.
 - Local operations remain usable during an outage. A failed sync leaves the queue untouched and tells the operator that data is saved locally.
+- Flexible two- and four-wheeler pricing, exit-with-due policy, price breakdowns, payment states, and completed-ticket data are stored in the central database alongside the original records.
+- If offline devices reconnect out of order, the database keeps the newest record and never lets an old parked entry replace an already completed exit. A duplicate active vehicle/ticket is rejected and the app refreshes from the shared record.
+- After device activation, syncing happens automatically after each supported change and when the device comes back online. **Sync now** remains available as a manual refresh.
 
 For a stand with very large historical data, evolve the snapshot endpoint to use a cursor or `updated_at` watermark before allowing more than the current 5,000-record operational response. The client intentionally merges history rather than clearing it so a bounded response cannot erase local records.

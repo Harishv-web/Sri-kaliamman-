@@ -44,7 +44,7 @@ Android may ask once for permission to install an app downloaded from the browse
 
 ## Central shared sync
 
-One-device offline use needs no setup. Cross-device synchronization requires a shared Supabase project because a public static site must never contain a database service secret. The included migration and Edge Functions provide that design; follow [SUPABASE_SETUP.md](SUPABASE_SETUP.md) when the parking stand's Supabase project is available.
+One-device offline use needs no setup. Cross-device synchronization uses one shared Supabase database because a public static site must never contain a database service secret. The included migration and Edge Functions synchronize tickets, entries, exits, payments, pricing, passes, and reports automatically after each change once trusted devices are connected; follow [SUPABASE_SETUP.md](SUPABASE_SETUP.md) when the parking stand's Supabase project is available.
 
 Until then, the app labels its state clearly as **Local data** and safely queues every local change rather than pretending that multi-device sync has been deployed.
 

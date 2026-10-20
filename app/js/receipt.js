@@ -1,4 +1,4 @@
-import { formatDuration, getVehicleMeta } from './store.js?v=10';
+import { formatDuration, getVehicleMeta } from './store.js?v=11';
 
 const currency = new Intl.NumberFormat('en-IN', {
   style: 'currency',

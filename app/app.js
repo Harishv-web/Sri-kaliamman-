@@ -7,14 +7,14 @@ import {
   getVehicleMeta,
   normalizeCustomerPhone,
   normalizeVehicleNumber,
-} from './js/store.js?v=10';
+} from './js/store.js?v=11';
 import {
   buildParkedMessage,
   buildReceiptMessage,
   buildSmsReceiptUrl,
   buildWhatsAppReceiptUrl,
   receiptPaymentStatus,
-} from './js/receipt.js?v=10';
+} from './js/receipt.js?v=11';
 
 const $ = (selector, parent = document) => parent.querySelector(selector);
 const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector)];
@@ -31,6 +31,7 @@ let receiptStandName = '';
 let entryNotificationRecord = null;
 let entryNotificationStandName = '';
 let toastTimer = null;
+let backgroundSync = null;
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
@@ -261,6 +262,8 @@ async function renderSyncStatus() {
     local: { label: 'Local data', detail: status.pending ? `${status.pending} change${status.pending === 1 ? '' : 's'} saved locally` : 'Ready offline', className: 'local' },
     offline: { label: 'Offline', detail: `${status.pending} change${status.pending === 1 ? '' : 's'} waiting to sync`, className: 'offline' },
     ready: { label: 'Ready to sync', detail: status.pending ? `${status.pending} change${status.pending === 1 ? '' : 's'} ready` : 'No pending changes', className: 'ready' },
+    synced: { label: 'Shared cloud data', detail: 'Every enrolled device is using one parking database.', className: 'ready' },
+    'synced-with-conflicts': { label: 'Shared data updated', detail: 'A conflicting local update was replaced by the current cloud record.', className: 'offline' },
     'activation-needed': { label: 'Device activation needed', detail: 'Save the securely issued device token in Settings.', className: 'offline' },
   };
   const copy = map[status.mode] || map.local;
@@ -272,6 +275,25 @@ async function renderSyncStatus() {
   updateText('#settings-sync-copy', status.mode === 'local'
     ? 'This device keeps working offline. Connect a central backend when you are ready for multi-device sync.'
     : copy.detail);
+}
+
+async function syncInBackground({ announce = false } = {}) {
+  if (backgroundSync) return backgroundSync;
+  backgroundSync = (async () => {
+    const status = await parkingStore.getSyncStatus();
+    if (!status.configured || status.mode === 'activation-needed' || !navigator.onLine) return status;
+    const result = await parkingStore.syncNow();
+    await renderAll();
+    if (announce && (result.mode === 'error' || result.mode === 'synced-with-conflicts')) {
+      showToast(result.message, result.mode === 'error' ? 'error' : 'info');
+    }
+    return result;
+  })();
+  try {
+    return await backgroundSync;
+  } finally {
+    backgroundSync = null;
+  }
 }
 
 async function renderAll() {
@@ -437,6 +459,7 @@ async function handleEntry(event) {
     updateEntryPreview();
     await renderAll();
     entryNotificationRecord = record;
+    await syncInBackground({ announce: true });
     $('#success-dialog')?.showModal();
   } catch (error) {
     showToast(error.message || 'Unable to create the parking ticket.', 'error');
@@ -509,6 +532,7 @@ async function handleCheckout(event) {
     });
     closeCheckout();
     await renderAll();
+    await syncInBackground({ announce: true });
     await showReceipt(completed);
   } catch (error) {
     showToast(error.message || 'Checkout could not be completed.', 'error');
@@ -536,6 +560,7 @@ async function handleMembership(event) {
     hideMembershipForm();
     showToast(`Membership saved for ${membership.vehicleNumber}.`, 'success');
     await renderAll();
+    await syncInBackground({ announce: true });
   } catch (error) {
     showToast(error.message || 'Membership could not be saved.', 'error');
   } finally {
@@ -553,6 +578,7 @@ async function handleSettings(event) {
     await parkingStore.saveSettings(Object.fromEntries(data));
     showToast('Parking setup saved. New tickets use these rates.', 'success');
     await renderAll();
+    await syncInBackground({ announce: true });
   } catch (error) {
     showToast(error.message || 'Settings could not be saved.', 'error');
   } finally {
@@ -576,6 +602,7 @@ async function handleSyncConfig(event) {
     $('#sync-device-token').value = '';
     showToast('Secure device connection saved on this device.', 'success');
     await renderAll();
+    await syncInBackground({ announce: true });
   } catch (error) {
     showToast(error.message || 'Device connection could not be saved.', 'error');
   } finally {
@@ -714,7 +741,7 @@ function bindEvents() {
   $('#active-search')?.addEventListener('input', (event) => { activeQuery = event.target.value; renderActive(); });
   $('#membership-filter')?.addEventListener('change', renderMemberships);
   $('#checkout-paid')?.addEventListener('input', updateCheckoutChange);
-  window.addEventListener('online', renderSyncStatus);
+  window.addEventListener('online', async () => { await syncInBackground({ announce: true }); await renderSyncStatus(); });
   window.addEventListener('offline', renderSyncStatus);
 }
 
@@ -728,6 +755,7 @@ async function start() {
     $('#app-loader')?.setAttribute('hidden', '');
     $('#app-shell')?.removeAttribute('hidden');
     setView(location.hash.slice(1) || 'dashboard');
+    void syncInBackground();
   } catch (error) {
     const loader = $('#app-loader');
     if (loader) loader.innerHTML = `<div class="loader-logo-wrap"><img src="../assets/sri-kaliamman-logo.jpg" alt="Sri Kaliamman Parking" /></div><p><strong>Parking data could not start.</strong><br />${escapeHtml(error.message || 'Please open the app in a modern browser with local storage enabled.')}</p>`;

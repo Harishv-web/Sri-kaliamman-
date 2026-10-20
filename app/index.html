@@ -188,18 +188,19 @@
               <div class="settings-group"><div class="settings-group-heading"><span>🚗</span><div><h2>Four wheeler parking</h2><p>Capacity and rate for cars and SUVs.</p></div></div><div class="setting-fields"><label><span>Parking bays</span><input type="number" name="fourWheelerCapacity" min="0" step="1" required /></label><label><span>Current 24-hour rate</span><div class="money-input"><b>₹</b><input type="number" name="fourWheelerRate" min="0" step="1" required /></div></label><label><span>Pricing plan</span><select name="fourWheelerPricingMode"><option value="legacy-period">24-hour rate</option><option value="flexible">Flexible hourly / daily</option></select></label></div><div class="setting-fields pricing-fields"><label><span>Initial fee</span><div class="money-input"><b>₹</b><input type="number" name="fourWheelerInitialFee" min="0" step="1" /></div></label><label><span>First-hour rate</span><div class="money-input"><b>₹</b><input type="number" name="fourWheelerHourlyRate" min="0" step="1" /></div></label><label><span>Additional-hour rate</span><div class="money-input"><b>₹</b><input type="number" name="fourWheelerAdditionalHourRate" min="0" step="1" /></div></label><label><span>Daily rate</span><div class="money-input"><b>₹</b><input type="number" name="fourWheelerDailyRate" min="0" step="1" /></div></label><label><span>Grace minutes</span><input type="number" name="fourWheelerGraceMinutes" min="0" step="1" /></label><label><span>Maximum daily charge <small>0 = no cap</small></span><div class="money-input"><b>₹</b><input type="number" name="fourWheelerMaximumDailyCharge" min="0" step="1" /></div></label><label><span>Additional fee <small>optional</small></span><div class="money-input"><b>₹</b><input type="number" name="fourWheelerAdditionalFee" min="0" step="1" /></div></label></div></div>
               <div class="settings-group"><div class="settings-group-heading"><span>↗</span><div><h2>Exit and payment policy</h2><p>Control whether a vehicle may exit with a recorded balance due.</p></div></div><label class="switch-row"><input type="checkbox" name="allowExitWithDue" /><span class="switch-control"></span><span><strong>Allow exit with outstanding due</strong><small>When off, checkout requires payment in full.</small></span></label></div>
               <div class="settings-group settings-group-last"><div class="settings-group-heading"><span>◇</span><div><h2>Membership</h2><p>Default monthly-pass amount.</p></div></div><div class="setting-fields single-setting"><label><span>Monthly pass amount</span><div class="money-input"><b>₹</b><input type="number" name="monthlyMembershipAmount" min="0" step="1" required /></div></label></div></div>
-              <div class="settings-save-row"><span class="local-note"><i></i> Settings save locally</span><button class="button button-primary" type="submit">Save parking setup</button></div>
+              <div class="settings-save-row"><span class="local-note"><i></i> Saves now · syncs automatically when connected</span><button class="button button-primary" type="submit">Save parking setup</button></div>
             </form>
             <aside class="settings-side">
               <article class="surface data-status-card"><div class="status-card-icon">⌁</div><p class="eyebrow">Data status</p><h2 id="settings-sync-title">Local parking data</h2><p id="settings-sync-copy">This device keeps working when offline.</p><button class="button button-quiet button-block" type="button" id="settings-sync-button">Sync now</button></article>
               <form class="surface sync-activation-form" id="sync-config-form" novalidate>
-                <p class="eyebrow">Optional central sync</p>
-                <h2>Activate this device</h2>
-                <p>Use a device token issued by your own secure parking backend. This is not a customer or staff login.</p>
+                <p class="eyebrow">Shared cloud database</p>
+                <h2>Connect this device</h2>
+                <p>Every enrolled device shares one protected parking database. Entries, exits, prices, passes, and reports sync automatically when online.</p>
                 <label class="field-label" for="sync-endpoint">Sync endpoint</label><input class="form-input" id="sync-endpoint" name="endpoint" type="url" placeholder="https://project.supabase.co/functions/v1" inputmode="url" />
                 <label class="field-label" for="sync-site-id">Parking stand ID</label><input class="form-input" id="sync-site-id" name="siteId" type="text" placeholder="UUID from your setup" autocomplete="off" />
-                <label class="field-label" for="sync-device-token">Device token</label><input class="form-input" id="sync-device-token" name="deviceToken" type="password" placeholder="Paste the token for this device" autocomplete="off" />
-                <button class="button button-quiet button-block" type="submit">Save device connection</button>
+                <label class="field-label" for="sync-device-token">Device key</label><input class="form-input" id="sync-device-token" name="deviceToken" type="password" placeholder="Paste the secure key for this device" autocomplete="off" />
+                <p class="field-help">The device key is issued once by your administrator and stays only on this device.</p>
+                <button class="button button-quiet button-block" type="submit">Connect shared database</button>
               </form>
               <article class="settings-help"><span>✦</span><p>Changes apply to every new parking ticket. Existing tickets keep their calculated charge.</p></article>
             </aside>
@@ -260,6 +261,6 @@
 
     <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
     <script src="./sync-config.js"></script>
-    <script type="module" src="./app.js?v=10"></script>
+    <script type="module" src="./app.js?v=11"></script>
   </body>
 </html>

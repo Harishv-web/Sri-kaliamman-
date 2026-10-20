@@ -33,6 +33,17 @@ function transactionPayload(payload: Record<string, unknown>, siteId: string) {
     status: payload.status,
     rate_per_period: payload.ratePerPeriod,
     billing_period_hours: payload.billingPeriodHours,
+    pricing_mode: payload.pricingMode || 'legacy-period',
+    initial_fee: payload.initialFee || 0,
+    hourly_rate: payload.hourlyRate || 0,
+    additional_hour_rate: payload.additionalHourRate || 0,
+    daily_rate: payload.dailyRate || payload.ratePerPeriod || 0,
+    grace_minutes: payload.graceMinutes || 0,
+    maximum_daily_charge: payload.maximumDailyCharge || 0,
+    additional_fee: payload.additionalFee || 0,
+    price_breakdown: Array.isArray(payload.priceBreakdown) ? payload.priceBreakdown : null,
+    exit_status: payload.exitStatus || null,
+    payment_status: payload.paymentStatus || null,
     membership_id: payload.membershipId || null,
     membership_status: payload.membershipStatus || 'not-active',
     membership_discount_percent: payload.membershipDiscountPercent || 0,
@@ -69,7 +80,11 @@ function clientTransaction(row: Record<string, unknown>) {
   return {
     id: row.id, serial: row.serial, vehicleNumber: row.vehicle_number, customerPhone: row.customer_phone || null, vehicleType: row.vehicle_type,
     entryAt: row.entry_at, checkoutAt: row.checkout_at, status: row.status, ratePerPeriod: row.rate_per_period,
-    billingPeriodHours: row.billing_period_hours, membershipId: row.membership_id,
+    billingPeriodHours: row.billing_period_hours, pricingMode: row.pricing_mode,
+    initialFee: row.initial_fee, hourlyRate: row.hourly_rate, additionalHourRate: row.additional_hour_rate,
+    dailyRate: row.daily_rate, graceMinutes: row.grace_minutes, maximumDailyCharge: row.maximum_daily_charge,
+    additionalFee: row.additional_fee, priceBreakdown: row.price_breakdown || [], exitStatus: row.exit_status,
+    paymentStatus: row.payment_status, membershipId: row.membership_id,
     membershipStatus: row.membership_status, membershipDiscountPercent: row.membership_discount_percent,
     durationMs: row.duration_ms, periods: row.periods, baseCharge: row.base_charge,
     membershipDiscount: row.membership_discount, parkingCharge: row.parking_charge, amountPaid: row.amount_paid,
@@ -106,6 +121,8 @@ Deno.serve(async (request) => {
   await admin.from('parking_devices').update({ last_seen_at: new Date().toISOString() }).eq('id', device.id);
 
   const acknowledgedOperationIds: string[] = [];
+  const rejectedOperationIds: string[] = [];
+  const conflicts: Array<{ operationId: string; message: string }> = [];
   for (const operation of input.operations) {
     if (!operation?.operationId || !operation?.kind || !operation.payload) continue;
     const { error: claimedError } = await admin.from('parking_processed_operations').insert({
@@ -126,13 +143,31 @@ Deno.serve(async (request) => {
         four_wheeler_rate: p.fourWheelerRate, two_wheeler_capacity: p.twoWheelerCapacity,
         four_wheeler_capacity: p.fourWheelerCapacity, billing_period_hours: p.billingPeriodHours,
         billing_rule: p.billingRule || 'ceil-period', monthly_membership_amount: p.monthlyMembershipAmount || 0,
-        membership_discount_percent: p.membershipDiscountPercent || 0, updated_at: p.updatedAt || new Date().toISOString(),
+        membership_discount_percent: p.membershipDiscountPercent || 0,
+        two_wheeler_pricing_mode: p.twoWheelerPricingMode || 'legacy-period', four_wheeler_pricing_mode: p.fourWheelerPricingMode || 'legacy-period',
+        two_wheeler_initial_fee: p.twoWheelerInitialFee || 0, four_wheeler_initial_fee: p.fourWheelerInitialFee || 0,
+        two_wheeler_hourly_rate: p.twoWheelerHourlyRate || 0, four_wheeler_hourly_rate: p.fourWheelerHourlyRate || 0,
+        two_wheeler_additional_hour_rate: p.twoWheelerAdditionalHourRate || 0, four_wheeler_additional_hour_rate: p.fourWheelerAdditionalHourRate || 0,
+        two_wheeler_daily_rate: p.twoWheelerDailyRate ?? p.twoWheelerRate, four_wheeler_daily_rate: p.fourWheelerDailyRate ?? p.fourWheelerRate,
+        two_wheeler_grace_minutes: p.twoWheelerGraceMinutes || 0, four_wheeler_grace_minutes: p.fourWheelerGraceMinutes || 0,
+        two_wheeler_maximum_daily_charge: p.twoWheelerMaximumDailyCharge || 0, four_wheeler_maximum_daily_charge: p.fourWheelerMaximumDailyCharge || 0,
+        two_wheeler_additional_fee: p.twoWheelerAdditionalFee || 0, four_wheeler_additional_fee: p.fourWheelerAdditionalFee || 0,
+        allow_exit_with_due: p.allowExitWithDue !== false, updated_at: p.updatedAt || new Date().toISOString(),
       }, { onConflict: 'site_id' }));
     } else {
       await admin.from('parking_processed_operations').delete().eq('operation_id', operation.operationId);
       return json({ error: 'Unsupported sync operation.' }, 400);
     }
     if (error) {
+      if (error.code === '23505') {
+        // The central database already owns this ticket or active vehicle.
+        // Resolve the client from the authoritative snapshot instead of
+        // retrying a permanent collision forever.
+        await admin.from('parking_processed_operations').delete().eq('operation_id', operation.operationId);
+        rejectedOperationIds.push(operation.operationId);
+        conflicts.push({ operationId: operation.operationId, message: 'A matching active vehicle or ticket already exists in the shared parking database.' });
+        continue;
+      }
       // Do not acknowledge a failed operation. Removing the reservation lets
       // the durable client queue retry safely after the underlying issue is fixed.
       await admin.from('parking_processed_operations').delete().eq('operation_id', operation.operationId);
@@ -156,10 +191,21 @@ Deno.serve(async (request) => {
     fourWheelerRate: settingsResult.data.four_wheeler_rate, twoWheelerCapacity: settingsResult.data.two_wheeler_capacity,
     fourWheelerCapacity: settingsResult.data.four_wheeler_capacity, billingPeriodHours: settingsResult.data.billing_period_hours,
     billingRule: settingsResult.data.billing_rule, monthlyMembershipAmount: settingsResult.data.monthly_membership_amount,
-    membershipDiscountPercent: settingsResult.data.membership_discount_percent, updatedAt: settingsResult.data.updated_at,
+    membershipDiscountPercent: settingsResult.data.membership_discount_percent,
+    twoWheelerPricingMode: settingsResult.data.two_wheeler_pricing_mode, fourWheelerPricingMode: settingsResult.data.four_wheeler_pricing_mode,
+    twoWheelerInitialFee: settingsResult.data.two_wheeler_initial_fee, fourWheelerInitialFee: settingsResult.data.four_wheeler_initial_fee,
+    twoWheelerHourlyRate: settingsResult.data.two_wheeler_hourly_rate, fourWheelerHourlyRate: settingsResult.data.four_wheeler_hourly_rate,
+    twoWheelerAdditionalHourRate: settingsResult.data.two_wheeler_additional_hour_rate, fourWheelerAdditionalHourRate: settingsResult.data.four_wheeler_additional_hour_rate,
+    twoWheelerDailyRate: settingsResult.data.two_wheeler_daily_rate, fourWheelerDailyRate: settingsResult.data.four_wheeler_daily_rate,
+    twoWheelerGraceMinutes: settingsResult.data.two_wheeler_grace_minutes, fourWheelerGraceMinutes: settingsResult.data.four_wheeler_grace_minutes,
+    twoWheelerMaximumDailyCharge: settingsResult.data.two_wheeler_maximum_daily_charge, fourWheelerMaximumDailyCharge: settingsResult.data.four_wheeler_maximum_daily_charge,
+    twoWheelerAdditionalFee: settingsResult.data.two_wheeler_additional_fee, fourWheelerAdditionalFee: settingsResult.data.four_wheeler_additional_fee,
+    allowExitWithDue: settingsResult.data.allow_exit_with_due, updatedAt: settingsResult.data.updated_at,
   } : null;
   return json({
     acknowledgedOperationIds,
+    rejectedOperationIds,
+    conflicts,
     changes: {
       snapshot: true,
       active: rows.filter((row) => row.status === 'parked').map(clientTransaction),

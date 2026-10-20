@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sri-kaliamman-v10';
+const CACHE_NAME = 'sri-kaliamman-v11';
 const APP_SHELL = [
   './',
   './index.html',
@@ -11,10 +11,10 @@ const APP_SHELL = [
   './app/',
   './app/index.html',
   './app/app.css?v=10',
-  './app/app.js?v=10',
+  './app/app.js?v=11',
   './app/sync-config.js',
-  './app/js/store.js?v=10',
-  './app/js/receipt.js?v=10'
+  './app/js/store.js?v=11',
+  './app/js/receipt.js?v=11'
 ];
 
 self.addEventListener('install', (event) => {
