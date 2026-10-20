@@ -1,0 +1,12 @@
+# Production project used by the Supabase GitHub integration.  This keeps the
+# shared parking database and its Edge Functions on the existing live project.
+[remotes.production]
+project_id = "nvhsobiqcoebzxlovfql"
+
+# These functions perform their own device-token checks.  Supabase's default
+# JWT gate must therefore be disabled so a valid enrolled device can reach it.
+[functions.sync]
+verify_jwt = false
+
+[functions.enroll-device]
+verify_jwt = false
